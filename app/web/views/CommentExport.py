@@ -322,8 +322,8 @@ def export_comments_from_url():
         clear()
         put_success(
             ViewsUtils.t(
-                f"成功解析视频ID: {aweme_id}",
-                f"Successfully parsed video ID: {aweme_id}",
+                f"成功解析视频ID: {aweme_id}，开始导出评论...",
+                f"Successfully parsed video ID: {aweme_id}, start exporting comments...",
             )
         )
         put_row([put_html("<br>")])
