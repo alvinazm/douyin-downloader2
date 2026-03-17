@@ -9,8 +9,10 @@ from pywebio.session import download as pywebio_download
 
 from app.web.views.ViewsUtils import ViewsUtils
 from crawlers.douyin.web.web_crawler import DouyinWebCrawler
+from crawlers.tiktok.web.web_crawler import TikTokWebCrawler
 
 Crawler = DouyinWebCrawler()
+TikTokCrawler = TikTokWebCrawler()
 
 # 读取配置文件
 config_path = os.path.join(
@@ -164,7 +166,9 @@ def export_comments_from_id():
     """
     通过视频ID导出评论
     """
-    put_markdown(ViewsUtils.t("## 📝 导出视频评论功能", "## 📝 Export Video Comments"))
+    put_markdown(
+        ViewsUtils.t("## 📝 导出dy视频评论功能", "## 📝 Export Video Comments")
+    )
     put_row([put_html("<br>")])
 
     aweme_id = input(
@@ -274,7 +278,9 @@ def export_comments_from_url():
     """
     通过视频URL导出评论
     """
-    put_markdown(ViewsUtils.t("## 📝 导出视频评论功能", "## 📝 Export Video Comments"))
+    put_markdown(
+        ViewsUtils.t("## 📝 导出dy视频评论功能", "## 📝 Export Video Comments")
+    )
     put_row([put_html("<br>")])
 
     url = input(
@@ -401,6 +407,381 @@ def export_comments_from_id_impl(aweme_id: str):
 
     for comment in comments[:5]:
         parsed = CommentExporter.parse_comment_data(comment)
+        if parsed:
+            table_data.append(
+                [
+                    parsed["评论人"],
+                    parsed["评论内容"][:50] + "..."
+                    if len(parsed["评论内容"]) > 50
+                    else parsed["评论内容"],
+                    parsed["点赞量"],
+                    parsed["评论时间"],
+                ]
+            )
+
+    put_table(table_data)
+
+    put_row([put_html("<br>")])
+    put_link(ViewsUtils.t("返回主页", "Back to home"), "/")
+
+
+class TikTokCommentExporter:
+    def __init__(self):
+        pass
+
+    @staticmethod
+    async def fetch_all_comments(aweme_id: str, max_comments: int = None):
+        """
+        获取TikTok视频的所有评论（支持分页）
+        """
+        all_comments = []
+        cursor = 0
+        count = 20
+        total_count = 0
+
+        while True:
+            try:
+                response = await TikTokCrawler.fetch_post_comment(
+                    aweme_id=aweme_id, cursor=cursor, count=count, current_region="US"
+                )
+
+                if not response or "comments" not in response:
+                    print(f"Response is empty or no comments: {response}")
+                    break
+
+                comments = response.get("comments", [])
+                if not comments:
+                    print(f"No comments in response")
+                    break
+
+                all_comments.extend(comments)
+                total_count += len(comments)
+                print(f"获取到 {len(comments)} 条评论，总计 {total_count} 条")
+
+                if max_comments and total_count >= max_comments:
+                    all_comments = all_comments[:max_comments]
+                    break
+
+                cursor = response.get("cursor", 0)
+                has_more = response.get("has_more", False)
+                print(f"游标: {cursor}, has_more: {has_more}")
+
+                if has_more == False:
+                    break
+
+                await asyncio.sleep(0.5)
+
+            except Exception as e:
+                print(f"Error fetching comments: {str(e)}")
+                import traceback
+
+                traceback.print_exc()
+                break
+
+        return all_comments
+
+    @staticmethod
+    def parse_comment_data(comment):
+        """
+        解析单条评论数据，提取所需字段
+        """
+        try:
+            user_info = comment.get("user", {})
+            text = comment.get("text", "")
+            digg_count = comment.get("digg_count", 0)
+            create_time = comment.get("create_time", 0)
+
+            if create_time:
+                from datetime import datetime
+
+                time_str = datetime.fromtimestamp(create_time).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+            else:
+                time_str = ""
+
+            nickname = user_info.get("nickname", "Unknown User")
+
+            return {
+                "评论人": nickname,
+                "评论内容": text,
+                "点赞量": digg_count,
+                "评论时间": time_str,
+            }
+        except Exception as e:
+            return None
+
+    @staticmethod
+    def generate_csv_content(comments):
+        """
+        生成CSV内容（返回bytes）
+        """
+        import csv
+        from io import StringIO, BytesIO
+
+        output = StringIO()
+        fieldnames = ["评论人", "评论内容", "点赞量", "评论时间"]
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+
+        output.write("\ufeff")
+
+        writer.writeheader()
+
+        for comment in comments:
+            parsed_data = TikTokCommentExporter.parse_comment_data(comment)
+            if parsed_data:
+                writer.writerow(parsed_data)
+
+        csv_string = output.getvalue()
+        csv_bytes = csv_string.encode("utf-8")
+
+        return csv_bytes
+
+
+def export_tiktok_comments_from_id():
+    """
+    通过视频ID导出TikTok评论
+    """
+    put_markdown(
+        ViewsUtils.t(
+            "## 📝 导出TikTok视频评论功能", "## 📝 Export TikTok Video Comments"
+        )
+    )
+    put_row([put_html("<br>")])
+
+    aweme_id = input(
+        ViewsUtils.t(
+            "请输入TikTok视频ID (aweme_id)", "Please enter TikTok video ID (aweme_id)"
+        ),
+        type=TEXT,
+        required=True,
+        placeholder="7304809083817774382",
+        help_text=ViewsUtils.t(
+            "例如：7304809083817774382", "Example: 7304809083817774382"
+        ),
+    )
+
+    max_comments = input(
+        ViewsUtils.t("最大评论数", "Max comments (optional)"),
+        type=NUMBER,
+        value=100,
+        required=False,
+        help_text=ViewsUtils.t(
+            "默认100条，建议不要设置过大", "Default 100, suggested not to set too high"
+        ),
+    )
+
+    put_row([put_html("<br>")])
+
+    put_info(
+        ViewsUtils.t(
+            f"正在获取TikTok视频 {aweme_id} 的评论，请稍候...",
+            f"Fetching TikTok comments for video {aweme_id}, please wait...",
+        )
+    )
+
+    comments = asyncio.run(
+        TikTokCommentExporter.fetch_all_comments(aweme_id, max_comments)
+    )
+
+    if not comments:
+        put_error(ViewsUtils.t("未找到任何评论", "No comments found"))
+        put_link(ViewsUtils.t("返回主页", "Back to home"), "/")
+        return
+
+    put_success(
+        ViewsUtils.t(
+            f"成功获取 {len(comments)} 条评论！",
+            f"Successfully fetched {len(comments)} comments!",
+        )
+    )
+
+    csv_content = TikTokCommentExporter.generate_csv_content(comments)
+
+    filename = f"tiktok_comments_{aweme_id}.csv"
+
+    put_row([put_html("<br>")])
+    put_markdown(ViewsUtils.t("### 📥 下载评论文件", "### 📥 Download Comments File"))
+    put_info(
+        ViewsUtils.t(
+            "点击下方按钮下载CSV文件", "Click the button below to download CSV file"
+        )
+    )
+
+    put_button(
+        ViewsUtils.t("下载 CSV 文件", "Download CSV File"),
+        onclick=lambda: pywebio_download(filename, csv_content),
+        color="primary",
+    )
+
+    put_row([put_html("<br><br>")])
+
+    put_markdown(
+        ViewsUtils.t("### 👀 评论预览 (前5条)", "### 👀 Comment Preview (First 5)")
+    )
+
+    from pywebio.output import put_table
+
+    table_data = [
+        [
+            ViewsUtils.t("评论人", "User"),
+            ViewsUtils.t("评论内容", "Content"),
+            ViewsUtils.t("点赞量", "Likes"),
+            ViewsUtils.t("评论时间", "Time"),
+        ]
+    ]
+
+    for comment in comments[:5]:
+        parsed = TikTokCommentExporter.parse_comment_data(comment)
+        if parsed:
+            table_data.append(
+                [
+                    parsed["评论人"],
+                    parsed["评论内容"][:50] + "..."
+                    if len(parsed["评论内容"]) > 50
+                    else parsed["评论内容"],
+                    parsed["点赞量"],
+                    parsed["评论时间"],
+                ]
+            )
+
+    put_table(table_data)
+
+    put_row([put_html("<br>")])
+    put_link(ViewsUtils.t("返回主页", "Back to home"), "/")
+
+
+def export_tiktok_comments_from_url():
+    """
+    通过视频URL导出TikTok评论
+    """
+    put_markdown(
+        ViewsUtils.t(
+            "## 📝 导出TikTok视频评论功能", "## 📝 Export TikTok Video Comments"
+        )
+    )
+    put_row([put_html("<br>")])
+
+    url = input(
+        ViewsUtils.t("请输入TikTok视频URL", "Please enter TikTok video URL"),
+        type=TEXT,
+        required=True,
+        placeholder="https://www.tiktok.com/@username/video/7304809083817774382",
+        help_text=ViewsUtils.t("支持长链接或短链接", "Support long or short URL"),
+    )
+
+    put_info(ViewsUtils.t("正在解析视频信息...", "Parsing video information..."))
+
+    try:
+        from crawlers.hybrid.hybrid_crawler import HybridCrawler
+
+        hybrid_crawler = HybridCrawler()
+        data = asyncio.run(
+            hybrid_crawler.hybrid_parsing_single_video(url, minimal=True)
+        )
+
+        if data.get("platform") != "tiktok":
+            put_error(
+                ViewsUtils.t(
+                    "仅支持TikTok视频评论导出",
+                    "Only TikTok video comment export is supported",
+                )
+            )
+            put_link(ViewsUtils.t("返回主页", "Back to home"), "/")
+            return
+
+        aweme_id = data.get("aweme_id", "") or data.get("video_id", "")
+
+        if not aweme_id:
+            clear()
+            put_error(
+                ViewsUtils.t(
+                    "无法获取视频ID，请检查URL是否正确",
+                    "Failed to get video ID, please check if the URL is correct",
+                )
+            )
+            put_link(ViewsUtils.t("返回主页", "Back to home"), "/")
+            return
+
+        clear()
+        put_success(
+            ViewsUtils.t(
+                f"成功解析视频ID: {aweme_id}，开始导出评论...",
+                f"Successfully parsed video ID: {aweme_id}, start exporting comments...",
+            )
+        )
+        put_row([put_html("<br>")])
+
+        export_tiktok_comments_from_id_impl(aweme_id)
+
+    except Exception as e:
+        clear()
+        put_error(
+            ViewsUtils.t(f"解析视频失败: {str(e)}", f"Failed to parse video: {str(e)}")
+        )
+        put_link(ViewsUtils.t("返回主页", "Back to home"), "/")
+
+
+def export_tiktok_comments_from_id_impl(aweme_id: str):
+    """
+    通过视频ID导出TikTok评论的实现函数
+    """
+    max_comments = input(
+        ViewsUtils.t("最大评论数", "Max comments (optional)"),
+        type=NUMBER,
+        value=100,
+        required=False,
+        help_text=ViewsUtils.t("默认100条", "Default 100"),
+    )
+
+    put_row([put_html("<br>")])
+
+    comments = asyncio.run(
+        TikTokCommentExporter.fetch_all_comments(aweme_id, max_comments)
+    )
+
+    if not comments:
+        put_error(ViewsUtils.t("未找到任何评论", "No comments found"))
+        put_link(ViewsUtils.t("返回主页", "Back to home"), "/")
+        return
+
+    put_success(
+        ViewsUtils.t(
+            f"成功获取 {len(comments)} 条评论！",
+            f"Successfully fetched {len(comments)} comments!",
+        )
+    )
+
+    csv_content = TikTokCommentExporter.generate_csv_content(comments)
+
+    filename = f"tiktok_comments_{aweme_id}.csv"
+
+    put_row([put_html("<br>")])
+    put_markdown(ViewsUtils.t("### 📥 下载评论文件", "### 📥 Download Comments File"))
+    put_button(
+        ViewsUtils.t("下载 CSV 文件", "Download CSV File"),
+        onclick=lambda: pywebio_download(filename, csv_content),
+        color="primary",
+    )
+
+    put_row([put_html("<br><br>")])
+
+    put_markdown(
+        ViewsUtils.t("### 👀 评论预览 (前5条)", "### 👀 Comment Preview (First 5)")
+    )
+    from pywebio.output import put_table
+
+    table_data = [
+        [
+            ViewsUtils.t("评论人", "User"),
+            ViewsUtils.t("评论内容", "Content"),
+            ViewsUtils.t("点赞量", "Likes"),
+            ViewsUtils.t("评论时间", "Time"),
+        ]
+    ]
+
+    for comment in comments[:5]:
+        parsed = TikTokCommentExporter.parse_comment_data(comment)
         if parsed:
             table_data.append(
                 [

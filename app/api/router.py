@@ -8,6 +8,7 @@ from app.api.endpoints import (
     ios_shortcut,
     download,
     comment_export,
+    tiktok_comment_export,
 )
 
 router = APIRouter()
@@ -35,3 +36,6 @@ router.include_router(download.router, tags=["Download"])
 
 # Comment export routers
 router.include_router(comment_export.router, prefix="/douyin", tags=["Comment-Export"])
+router.include_router(
+    tiktok_comment_export.router, prefix="/tiktok", tags=["TikTok-Comment-Export"]
+)

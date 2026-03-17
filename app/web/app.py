@@ -15,6 +15,8 @@ from app.web.views.Shortcuts import ios_pop_window
 from app.web.views.CommentExport import (
     export_comments_from_url,
     export_comments_from_id,
+    export_tiktok_comments_from_url,
+    export_tiktok_comments_from_id,
 )
 
 # PyWebIO的各个视图/Views of PyWebIO
@@ -106,13 +108,25 @@ class MainView:
                 self.utils.t("🔍解析用户主页视频", "🔍Parse User Homepage Video"),
                 # Index: 2
                 self.utils.t(
-                    "💬导出视频评论 (通过ID)", "💬Export Video Comments (by ID)"
+                    "💬导出dy视频评论 (通过ID)",
+                    "💬Export Douyin Video Comments (by ID)",
                 ),
                 # Index: 3
                 self.utils.t(
-                    "💬导出视频评论 (通过URL)", "💬Export Video Comments (by URL)"
+                    "💬导出dy视频评论 (通过URL)",
+                    "💬Export Douyin Video Comments (by URL)",
                 ),
                 # Index: 4
+                self.utils.t(
+                    "🎬导出TikTok视频评论 (通过ID)",
+                    "🎬Export TikTok Video Comments (by ID)",
+                ),
+                # Index: 5
+                self.utils.t(
+                    "🎬导出TikTok视频评论 (通过URL)",
+                    "🎬Export TikTok Video Comments (by URL)",
+                ),
+                # Index: 6
                 self.utils.t("🥚小彩蛋", "🥚Easter Egg"),
             ]
             select_options = select(
@@ -142,6 +156,10 @@ class MainView:
             elif select_options == options[3]:
                 export_comments_from_url()
             elif select_options == options[4]:
+                export_tiktok_comments_from_id()
+            elif select_options == options[5]:
+                export_tiktok_comments_from_url()
+            elif select_options == options[6]:
                 a() if _config["Web"]["Easter_Egg"] else put_markdown(
                     self.utils.t("没有小彩蛋哦~", "No Easter Egg~")
                 )
