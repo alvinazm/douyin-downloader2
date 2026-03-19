@@ -117,10 +117,10 @@ const showAbout = () => {
     <div class="space-y-4">
       <div class="text-center py-4 bg-blue-50 rounded-lg">
         <img 
-          src="https://raw.githubusercontent.com/Evil0ctal/Douyin_TikTok_Download_API/main/logo/logo192.png" 
-          alt="Logo" 
-          class="w-16 h-16 mx-auto mb-3 rounded-xl"
-        />
+           src="/logo/logo192.png" 
+           alt="Logo" 
+           class="w-16 h-16 mx-auto mb-3 rounded-xl"
+         />
         <h3 class="text-xl font-bold text-gray-800 mb-1">Douyin_TikTok_Download_API</h3>
         <p class="text-sm text-gray-500">版本 ${configStore.apiVersion}</p>
       </div>
@@ -149,9 +149,9 @@ const showAbout = () => {
       <header class="text-center mb-12 animate-in fade-in slide-in-from-top-4 duration-700">
         <div class="inline-flex items-center justify-center mb-6">
           <img 
-            src="https://raw.githubusercontent.com/Evil0ctal/Douyin_TikTok_Download_API/main/logo/logo192.png" 
-            alt="Logo" 
-            class="w-20 h-20 rounded-2xl shadow-lg"
+             src="/logo/logo192.png" 
+             alt="Logo" 
+             class="w-20 h-20 rounded-2xl shadow-lg"
           />
         </div>
         <h1 class="text-4xl font-bold text-gray-900 mb-3">

@@ -53,14 +53,14 @@ const handleFetch = async () => {
 
     if (props.platform === 'douyin') {
       await fetchDouyinComments({
-        aweme_id: exportType.value === 'id' ? awemeId.value : undefined,
-        url: exportType.value === 'url' ? url.value : undefined,
+        aweme_id: exportType.value === 'id' ? awemeId.value.trim() : undefined,
+        url: exportType.value === 'url' ? url.value.trim() : undefined,
         max_comments: maxComments.value
       })
     } else {
       await fetchTiktokComments({
-        aweme_id: exportType.value === 'id' ? awemeId.value : undefined,
-        url: exportType.value === 'url' ? url.value : undefined,
+        aweme_id: exportType.value === 'id' ? awemeId.value.trim() : undefined,
+        url: exportType.value === 'url' ? url.value.trim() : undefined,
         max_comments: maxComments.value
       })
     }
@@ -79,14 +79,14 @@ const handleExport = async () => {
 
     if (props.platform === 'douyin') {
       blob = await exportDouyinComments({
-        aweme_id: exportType.value === 'id' ? awemeId.value : undefined,
-        url: exportType.value === 'url' ? url.value : undefined,
+        aweme_id: exportType.value === 'id' ? awemeId.value.trim() : undefined,
+        url: exportType.value === 'url' ? url.value.trim() : undefined,
         max_comments: maxComments.value
       })
     } else {
       blob = await exportTiktokComments({
-        aweme_id: exportType.value === 'id' ? awemeId.value : undefined,
-        url: exportType.value === 'url' ? url.value : undefined,
+        aweme_id: exportType.value === 'id' ? awemeId.value.trim() : undefined,
+        url: exportType.value === 'url' ? url.value.trim() : undefined,
         max_comments: maxComments.value
       })
     }

@@ -156,11 +156,16 @@ else:
     frontend_path = os.path.join(os.getcwd(), "frontend", "dist")
 
 if os.path.exists(frontend_path):
-    # Mount Vue static files (for assets)
+    # Mount Vue static files (for assets and logo)
     app.mount(
         "/assets",
         StaticFiles(directory=os.path.join(frontend_path, "assets")),
         name="assets",
+    )
+    app.mount(
+        "/logo",
+        StaticFiles(directory=os.path.join(frontend_path, "logo")),
+        name="logo",
     )
 
     @app.get("/")
