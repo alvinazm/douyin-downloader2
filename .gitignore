@@ -86,3 +86,9 @@ crawlers/*/web/config.yaml
 cookies.json
 cookies.yaml
 *.cookie
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.cache/

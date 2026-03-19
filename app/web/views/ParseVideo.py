@@ -39,7 +39,7 @@ def valid_check(input_data: str):
         max_urls = config["Web"]["Max_Take_URLs"]
         if total_urls > int(max_urls):
             warn_info = ViewsUtils.t(
-                f"输入的链接太多啦，当前只会处理输入的前{max_urls}个链接！",
+                f"输入的链接太多啦，一次只能输入{max_urls}个链接，请减少后再试！",
                 f"Too many links input, only the first {max_urls} links will be processed!",
             )
             return warn_info
