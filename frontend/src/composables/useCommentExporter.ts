@@ -13,6 +13,7 @@ export function useCommentExporter() {
   const downloadUrl = ref<string | null>(null)
   const comments = ref<any[]>([])
   const totalComments = ref(0)
+  const currentTaskId = ref<string | null>(null)
 
   /**
    * 获取抖音评论
@@ -74,7 +75,7 @@ export function useCommentExporter() {
   }
 
   /**
-   * 导出抖音评论
+   * 导出抖音评论（使用任务系统）
    * @param params 导出参数
    */
   const exportDouyinComments = async (params: {
@@ -82,17 +83,44 @@ export function useCommentExporter() {
     url?: string
     max_comments: number
     cookie?: string
-  }): Promise<Blob> => {
+  }) => {
     try {
       error.value = null
       isExporting.value = true
       exportProgress.value = 0
       downloadUrl.value = null
+      currentTaskId.value = null
 
-      const blob = await ApiClient.exportDouyinComments(params)
-      exportProgress.value = params.max_comments
+      let awemeId = params.aweme_id
 
-      return blob
+      // 如果提供了URL但没有提供ID，则先提取ID
+      if (!awemeId && params.url) {
+        try {
+          const extractResponse = await ApiClient.fetchDouyinComments({
+            url: params.url,
+            max_comments: 5
+          })
+          // 从评论响应中提取ID（这只是预览，不会真正执行导出）
+        } catch (err: any) {
+          // 忽略错误，继续尝试创建任务
+        }
+      }
+
+      if (!awemeId) {
+        throw new Error('无法获取视频ID')
+      }
+
+      // 创建任务
+      const task = await ApiClient.createCommentExportTask({
+        platform: 'douyin',
+        aweme_id: awemeId,
+        max_comments: params.max_comments,
+        filename: `douyin_comments_${awemeId}`
+      })
+
+      currentTaskId.value = task.task_id
+
+      return task
     } catch (err: any) {
       console.error('导出评论失败:', err)
       error.value = `导出失败: ${err.message || '未知错误'}`
@@ -103,24 +131,51 @@ export function useCommentExporter() {
   }
 
   /**
-   * 导出TikTok评论
+   * 导出TikTok评论（使用任务系统）
    * @param params 导出参数
    */
   const exportTiktokComments = async (params: {
     aweme_id?: string
     url?: string
     max_comments: number
-  }): Promise<Blob> => {
+  }) => {
     try {
       error.value = null
       isExporting.value = true
       exportProgress.value = 0
       downloadUrl.value = null
+      currentTaskId.value = null
 
-      const blob = await ApiClient.exportTiktokComments(params)
-      exportProgress.value = params.max_comments
+      let awemeId = params.aweme_id
 
-      return blob
+      // 如果提供了URL但没有提供ID，则先提取ID
+      if (!awemeId && params.url) {
+        try {
+          const extractResponse = await ApiClient.fetchTiktokComments({
+            url: params.url,
+            max_comments: 5
+          })
+          // 从评论响应中提取ID（这只是预览，不会真正执行导出）
+        } catch (err: any) {
+          // 忽略错误，继续尝试创建任务
+        }
+      }
+
+      if (!awemeId) {
+        throw new Error('无法获取视频ID')
+      }
+
+      // 创建任务
+      const task = await ApiClient.createCommentExportTask({
+        platform: 'tiktok',
+        aweme_id: awemeId,
+        max_comments: params.max_comments,
+        filename: `tiktok_comments_${awemeId}`
+      })
+
+      currentTaskId.value = task.task_id
+
+      return task
     } catch (err: any) {
       console.error('导出评论失败:', err)
       error.value = `导出失败: ${err.message || '未知错误'}`
@@ -155,6 +210,7 @@ export function useCommentExporter() {
     isExporting.value = false
     exportProgress.value = 0
     downloadUrl.value = null
+    currentTaskId.value = null
   }
 
   return {
@@ -166,6 +222,7 @@ export function useCommentExporter() {
     downloadUrl,
     comments,
     totalComments,
+    currentTaskId,
 
     // 方法
     fetchDouyinComments,

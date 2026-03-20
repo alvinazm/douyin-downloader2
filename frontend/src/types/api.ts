@@ -137,6 +137,37 @@ export interface CommentExportParams {
 }
 
 /**
+ * 评论导出任务状态
+ */
+export interface CommentExportTask {
+  task_id: string
+  platform: 'douyin' | 'tiktok'
+  aweme_id: string
+  max_comments: number
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  progress: number
+  total_fetched: number
+  file_path: string
+  error_message: string | null
+  created_at: string
+  updated_at: string
+  completed_at: string | null
+}
+
+/**
+ * 创建任务响应
+ */
+export interface CreateTaskResponse {
+  task_id: string
+  platform: string
+  aweme_id: string
+  max_comments: number
+  status: string
+  file_path: string
+  created_at: string
+}
+
+/**
  * iOS快捷指令信息
  */
 export interface IOSShortcut {

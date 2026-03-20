@@ -18,49 +18,66 @@ config_path = os.path.join(
 )
 
 
-async def fetch_all_comments(aweme_id: str, max_comments: int = None):
+async def fetch_and_save_comments_stream(
+    aweme_id: str, file_path: str, max_comments: int | None = None
+):
     """
-    获取视频的所有评论（支持分页）
+    流式获取评论并保存到CSV文件，避免超时
     """
-    all_comments = []
     cursor = 0
     count = 20
     total_count = 0
 
-    while True:
-        try:
-            response = await Crawler.fetch_video_comments(
-                aweme_id=aweme_id, cursor=cursor, count=count
-            )
+    try:
+        # 创建目录
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-            if not response or "comments" not in response:
-                break
+        # 打开CSV文件并写入表头
+        with open(file_path, "w", newline="", encoding="utf-8-sig") as csvfile:
+            fieldnames = ["评论人", "评论内容", "点赞量", "评论时间"]
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
 
-            comments = response.get("comments", [])
-            if not comments:
-                break
+            # 流式获取和写入评论
+            while True:
+                response = await Crawler.fetch_video_comments(
+                    aweme_id=aweme_id, cursor=cursor, count=count
+                )
 
-            all_comments.extend(comments)
-            total_count += len(comments)
+                if not response or "comments" not in response:
+                    break
 
-            # 如果达到最大评论数，停止获取
-            if max_comments and total_count >= max_comments:
-                all_comments = all_comments[:max_comments]
-                break
+                comments = response.get("comments", [])
+                if not comments:
+                    break
 
-            # 更新游标
-            cursor = response.get("cursor", 0)
-            if response.get("has_more", False) == False:
-                break
+                # 立即写入这一批评论
+                for comment in comments:
+                    if max_comments and total_count >= max_comments:
+                        break
 
-            # 添加延迟，避免请求过快
-            await asyncio.sleep(0.5)
+                    parsed_data = parse_comment_data(comment)
+                    if parsed_data:
+                        writer.writerow(parsed_data)
+                        total_count += 1
 
-        except Exception as e:
-            print(f"Error fetching comments: {e}")
-            break
+                # 如果达到最大评论数，停止获取
+                if max_comments and total_count >= max_comments:
+                    break
 
-    return all_comments
+                # 更新游标
+                cursor = response.get("cursor", 0)
+                if response.get("has_more", False) == False:
+                    break
+
+                # 添加延迟，避免请求过快
+                await asyncio.sleep(0.3)
+
+        return total_count
+
+    except Exception as e:
+        print(f"Error in fetch_and_save_comments_stream: {e}")
+        raise
 
 
 def parse_comment_data(comment):
@@ -121,6 +138,51 @@ async def save_comments_to_csv(comments, file_path: str):
         return False
 
 
+async def fetch_all_comments(aweme_id: str, max_comments: int | None = None):
+    """
+    获取视频的所有评论（支持分页）
+    """
+    all_comments = []
+    cursor = 0
+    count = 20
+    total_count = 0
+
+    while True:
+        try:
+            response = await Crawler.fetch_video_comments(
+                aweme_id=aweme_id, cursor=cursor, count=count
+            )
+
+            if not response or "comments" not in response:
+                break
+
+            comments = response.get("comments", [])
+            if not comments:
+                break
+
+            all_comments.extend(comments)
+            total_count += len(comments)
+
+            # 如果达到最大评论数，停止获取
+            if max_comments and total_count >= max_comments:
+                all_comments = all_comments[:max_comments]
+                break
+
+            # 更新游标
+            cursor = response.get("cursor", 0)
+            if response.get("has_more", False) == False:
+                break
+
+            # 添加延迟，避免请求过快
+            await asyncio.sleep(0.5)
+
+        except Exception as e:
+            print(f"Error fetching comments: {e}")
+            break
+
+    return all_comments
+
+
 @router.get("/comments/export", response_model=None)
 async def export_comments_to_csv(
     request: Request,
@@ -137,9 +199,10 @@ async def export_comments_to_csv(
     ### 用途:
     - 获取视频的所有评论并导出为CSV文件
     - 导出的内容包含：评论人、评论内容、点赞量、评论时间
+    - 使用流式处理，避免大量数据超时
     ### 参数:
     - aweme_id: 作品id
-    - max_comments: 最大获取评论数，默认100
+    - max_comments: 最大获取评论数，默认100，最多10000
     - filename: 自定义文件名（不含扩展名），默认使用aweme_id
     ### 返回:
     - 返回CSV文件供下载
@@ -148,9 +211,10 @@ async def export_comments_to_csv(
     ### Purpose:
     - Get all comments of a video and export them as a CSV file
     - Exported content includes: commenter, comment content, like count, comment time
+    - Uses streaming processing to avoid timeout for large datasets
     ### Parameters:
     - aweme_id: Video id
-    - max_comments: Maximum number of comments to fetch, default 100
+    - max_comments: Maximum number of comments to fetch, default 100, max 10000
     - filename: Custom filename (without extension), default uses aweme_id
     ### Returns:
     - Return CSV file for download
@@ -160,16 +224,9 @@ async def export_comments_to_csv(
     max_comments: 100
     """
     try:
-        # 获取所有评论
-        comments = await fetch_all_comments(aweme_id, max_comments)
-
-        if not comments:
-            return ErrorResponseModel(
-                code=404,
-                message="未找到评论/No comments found",
-                router=request.url.path,
-                params=dict(request.query_params),
-            )
+        # 限制最大评论数
+        if max_comments > 10000:
+            max_comments = 10000
 
         # 生成文件名
         if not filename:
@@ -188,13 +245,15 @@ async def export_comments_to_csv(
         csv_filename = f"{filename}.csv"
         csv_file_path = os.path.join(download_path, csv_filename)
 
-        # 保存到CSV
-        success = await save_comments_to_csv(comments, csv_file_path)
+        # 使用流式处理获取和保存评论
+        total_saved = await fetch_and_save_comments_stream(
+            aweme_id, csv_file_path, max_comments
+        )
 
-        if not success:
+        if total_saved == 0:
             return ErrorResponseModel(
-                code=500,
-                message="保存CSV文件失败/Failed to save CSV file",
+                code=404,
+                message="未找到评论/No comments found",
                 router=request.url.path,
                 params=dict(request.query_params),
             )

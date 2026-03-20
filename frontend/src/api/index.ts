@@ -1,5 +1,5 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios'
-import type { ResponseModel, ErrorResponseModel, VideoData, VideoParseParams, DownloadParams, CommentExportParams, IOSShortcut } from '@/types/api'
+import type { ResponseModel, ErrorResponseModel, VideoData, VideoParseParams, DownloadParams, CommentExportParams, IOSShortcut, CommentExportTask } from '@/types/api'
 import { createMockCSVFile } from '@/assets/mock-data/comments'
 
 /**
@@ -17,7 +17,7 @@ const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true'
  */
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  timeout: 300000,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -300,6 +300,62 @@ export class ApiClient {
     const response: AxiosResponse<ResponseModel<{ message: string }>> = await apiClient.post('/hybrid/update_cookie', {
       service,
       cookie
+    })
+
+    return response.data.data
+  }
+
+  /**
+   * 创建评论导出任务
+   */
+  static async createCommentExportTask(params: {
+    platform: 'douyin' | 'tiktok'
+    aweme_id: string
+    max_comments: number
+    filename?: string
+  }) {
+    const response: AxiosResponse<ResponseModel<any>> = await apiClient.post('/tasks/comments/create_task', null, {
+      params
+    })
+
+    return response.data.data
+  }
+
+  /**
+   * 获取任务状态
+   */
+  static async getTaskStatus(task_id: string): Promise<CommentExportTask> {
+    const response: AxiosResponse<ResponseModel<CommentExportTask>> = await apiClient.get(`/tasks/comments/tasks/${task_id}`)
+
+    return response.data.data
+  }
+
+  /**
+   * 获取所有任务
+   */
+  static async getAllTasks(): Promise<{ total: number; tasks: CommentExportTask[] }> {
+    const response: AxiosResponse<ResponseModel<{ total: number; tasks: CommentExportTask[] }>> = await apiClient.get('/tasks/comments/tasks')
+
+    return response.data.data
+  }
+
+  /**
+   * 下载任务文件
+   */
+  static async downloadTaskFile(task_id: string): Promise<Blob> {
+    const response: AxiosResponse<Blob> = await apiClient.get(`/tasks/comments/download/${task_id}`, {
+      responseType: 'blob'
+    })
+
+    return response.data
+  }
+
+  /**
+   * 删除任务
+   */
+  static async deleteTask(task_id: string, delete_file: boolean = false): Promise<{ task_id: string; delete_file: boolean }> {
+    const response: AxiosResponse<ResponseModel<{ task_id: string; delete_file: boolean }>> = await apiClient.delete(`/tasks/comments/tasks/${task_id}`, {
+      params: { delete_file }
     })
 
     return response.data.data

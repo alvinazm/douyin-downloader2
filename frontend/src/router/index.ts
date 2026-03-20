@@ -19,6 +19,11 @@ const routes: RouteRecordRaw[] = [
     name: 'export',
     component: () => import('@/components/ExportPage.vue'),
     props: true
+  },
+  {
+    path: '/download-history',
+    name: 'download-history',
+    component: () => import('@/components/DownloadHistory.vue')
   }
 ]
 

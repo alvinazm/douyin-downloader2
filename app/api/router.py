@@ -9,6 +9,7 @@ from app.api.endpoints import (
     download,
     comment_export,
     tiktok_comment_export,
+    comment_export_task_api,
 )
 
 router = APIRouter()
@@ -38,4 +39,9 @@ router.include_router(download.router, tags=["Download"])
 router.include_router(comment_export.router, prefix="/douyin", tags=["Comment-Export"])
 router.include_router(
     tiktok_comment_export.router, prefix="/tiktok", tags=["TikTok-Comment-Export"]
+)
+router.include_router(
+    comment_export_task_api.router,
+    prefix="/tasks/comments",
+    tags=["Comment-Export-Tasks"],
 )

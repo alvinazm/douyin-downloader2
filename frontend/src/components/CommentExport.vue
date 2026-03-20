@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useCommentExporter } from '@/composables/useCommentExporter'
 
 interface Props {
@@ -7,6 +8,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const router = useRouter()
 const {
   isFetching,
   isExporting,
@@ -19,7 +21,8 @@ const {
   totalComments,
   fetchDouyinComments,
   fetchTiktokComments,
-  resetExporter
+  resetExporter,
+  currentTaskId
 } = useCommentExporter()
 
 const exportType = ref<'id' | 'url'>('url')
@@ -141,6 +144,10 @@ const closeErrorModal = () => {
   showErrorModal.value = false
   errorMessage.value = ''
 }
+
+const goToHistory = () => {
+  router.push('/download-history')
+}
 </script>
 
 <template>
@@ -234,12 +241,20 @@ const closeErrorModal = () => {
       </button>
 
       <button
-        v-if="hasFetched"
+        v-if="hasFetched && !currentTaskId"
         @click="handleExport"
         :disabled="isExporting"
         class="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-medium hover:from-green-600 hover:to-green-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {{ isExporting ? '导出中...' : '导出CSV' }}
+        {{ isExporting ? '创建任务中...' : '导出CSV' }}
+      </button>
+
+      <button
+        v-if="currentTaskId"
+        @click="goToHistory"
+        class="px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg font-medium hover:from-purple-600 hover:to-purple-700 transition-all duration-200"
+      >
+        查看下载任务
       </button>
     </div>
 

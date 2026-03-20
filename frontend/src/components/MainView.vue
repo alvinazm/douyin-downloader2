@@ -34,6 +34,13 @@ const features = [
     title: '导出TikTok评论',
     description: '通过视频URL/ID导出TikTok视频评论到CSV',
     gradient: 'from-blue-500 to-blue-600'
+  },
+  {
+    id: 'download-history',
+    icon: '📥',
+    title: '下载历史',
+    description: '查看和管理您的评论导出任务',
+    gradient: 'from-purple-500 to-purple-600'
   }
 ]
 
@@ -53,6 +60,9 @@ const handleOptionSelect = (optionId: string) => {
       break
     case 'export-tiktok-url':
       router.push('/export/tiktok')
+      break
+    case 'download-history':
+      router.push('/download-history')
       break
     case 'easter-egg':
       if (configStore.easterEgg) {
