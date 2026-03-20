@@ -7,14 +7,14 @@ import type { VideoData } from '@/types/api'
  * 配置状态管理
  */
 export const useConfigStore = defineStore('config', () => {
-  // 状态
-  const apiVersion = ref('V4.1.2')
-  const updateTime = ref('2026/03/16')
-  const environment = ref('Demo')
-  const maxTakeUrls = ref(30) // 单次最大解析链接数量30个
-  const maxComments = ref(50000) // 最大评论导出数量
+  // 状态 - 初始值从服务器加载，这里只给默认fallback值
+  const apiVersion = ref('')
+  const updateTime = ref('')
+  const environment = ref('')
+  const maxTakeUrls = ref(0)
+  const maxComments = ref(0)
   const downloadSwitch = ref(true)
-  const downloadFilePrefix = ref('douyin.wtf_')
+  const downloadFilePrefix = ref('')
   const easterEgg = ref(true)
   const live2DEnable = ref(true)
   const isLoading = ref(false)

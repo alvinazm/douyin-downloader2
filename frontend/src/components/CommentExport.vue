@@ -11,6 +11,12 @@ interface Props {
 const props = defineProps<Props>()
 const router = useRouter()
 const configStore = useConfigStore()
+
+// 等待配置加载完成
+if (configStore.maxComments === 0 && !configStore.error) {
+  configStore.loadConfig()
+}
+
 const {
   isFetching,
   isExporting,
@@ -101,6 +107,11 @@ const handleExport = async () => {
 }
 
 const validateInput = (): string | null => {
+  // 检查配置是否已加载
+  if (configStore.maxComments === 0) {
+    return '配置加载中，请稍候...'
+  }
+
   if (exportType.value === 'id') {
     if (!awemeId.value.trim()) {
       return '请输入视频ID'
@@ -149,6 +160,16 @@ const goToHistory = () => {
 
 <template>
   <div class="bg-white border-2 border-gray-200 rounded-xl p-6 shadow-md">
+    <!-- 配置错误提示 -->
+    <div v-if="configStore.error" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+      <div class="flex items-center gap-2 text-red-700">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333.192-3 1.732-3z"></path>
+        </svg>
+        <span class="font-medium">配置加载失败: {{ configStore.error }}</span>
+      </div>
+    </div>
+
     <div class="flex items-center gap-3 mb-6">
       <div class="p-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600">
         <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">

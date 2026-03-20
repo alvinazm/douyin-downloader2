@@ -163,6 +163,6 @@ douyin-downloader/
 
 ### 5. 导出数量配置
 
-配置在：frontend/src/stores/config.ts
+配置在：config.yaml
 const maxTakeUrls = ref(30) // 单次最大解析链接数量30个
 const maxComments = ref(50000) // 最大评论导出数量
