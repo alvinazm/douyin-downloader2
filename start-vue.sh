@@ -31,4 +31,8 @@ lsof -ti:8000 | xargs kill -9 2>/dev/null || echo "没有进程占用8000端口"
 # 等待端口释放
 sleep 1
 
+# 构建前端
+echo "构建前端..."
+cd frontend && npm run build && cd ..
+
 python3 -m uvicorn app.vue_main:app --host 0.0.0.0 --port 8000 --reload
