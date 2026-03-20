@@ -23,7 +23,8 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/download-history',
     name: 'download-history',
-    component: () => import('@/components/DownloadHistory.vue')
+    component: () => import('@/components/DownloadHistory.vue'),
+    meta: { requiresLoad: true }
   }
 ]
 

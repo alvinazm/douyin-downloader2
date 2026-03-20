@@ -358,6 +358,10 @@ export class ApiClient {
   static async getAllTasks(): Promise<{ total: number; tasks: CommentExportTask[] }> {
     const response: AxiosResponse<ResponseModel<{ total: number; tasks: CommentExportTask[] }>> = await apiClient.get('/tasks/comments/tasks')
 
+    console.log('getAllTasks - response:', response)
+    console.log('getAllTasks - response.data:', response.data)
+    console.log('getAllTasks - response.data.data:', response.data.data)
+
     return response.data.data
   }
 
