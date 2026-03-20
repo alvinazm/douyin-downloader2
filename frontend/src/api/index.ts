@@ -80,6 +80,20 @@ export class ApiClient {
   }
 
   /**
+   * 获取前端配置
+   */
+  static async getConfig(): Promise<{
+    maxComments: number
+    maxTakeUrls: number
+    apiVersion: string
+    environment: string
+  }> {
+    const response: AxiosResponse<ResponseModel<any>> = await apiClient.get('/config/config')
+
+    return response.data.data
+  }
+
+  /**
    * 下载视频/图集
    */
   static async downloadFile(params: DownloadParams): Promise<Blob> {

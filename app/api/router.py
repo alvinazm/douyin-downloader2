@@ -10,9 +10,13 @@ from app.api.endpoints import (
     comment_export,
     tiktok_comment_export,
     comment_export_task_api,
+    config_api,
 )
 
 router = APIRouter()
+
+# Config router
+router.include_router(config_api.router, prefix="/config", tags=["Config"])
 
 # TikTok routers
 router.include_router(tiktok_web.router, prefix="/tiktok/web", tags=["TikTok-Web-API"])
