@@ -165,4 +165,4 @@ douyin-downloader/
 
 配置在：config.yaml
 const maxTakeUrls = ref(30) // 单次最大解析链接数量30个
-const maxComments = ref(50000) // 最大评论导出数量
+Max_Comments: 50000    # Maximum number of comments to export | 最大评论导出数量
