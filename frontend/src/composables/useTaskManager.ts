@@ -1,8 +1,8 @@
-import { ref, reactive } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ApiClient } from '@/api'
 import type { CommentExportTask } from '@/types/api'
 
-const tasks = ref<Map<string, CommentExportTask>>(new Map())
+const tasks = ref<CommentExportTask[]>([])
 const isPolling = ref(false)
 const pollInterval = ref<NodeJS.Timeout | null>(null)
 
@@ -12,12 +12,11 @@ export function useTaskManager() {
    */
   const loadAllTasks = async () => {
     try {
+      console.log('开始加载任务...')
       const response = await ApiClient.getAllTasks()
-      const tasksMap = new Map<string, CommentExportTask>()
-      response.tasks.forEach(task => {
-        tasksMap.set(task.task_id, task)
-      })
-      tasks.value = tasksMap
+      console.log('任务加载成功:', response)
+      tasks.value = response.tasks
+      console.log('任务列表已更新，总共:', tasks.value.length, '个任务')
       return response
     } catch (err) {
       console.error('加载任务失败:', err)
@@ -31,7 +30,11 @@ export function useTaskManager() {
   const getTaskStatus = async (taskId: string): Promise<CommentExportTask | null> => {
     try {
       const task = await ApiClient.getTaskStatus(taskId)
-      tasks.value.set(taskId, task)
+      // 更新任务列表中的任务
+      const index = tasks.value.findIndex(t => t.task_id === taskId)
+      if (index !== -1) {
+        tasks.value[index] = task
+      }
       return task
     } catch (err) {
       console.error('获取任务状态失败:', err)
@@ -43,19 +46,23 @@ export function useTaskManager() {
    * 开始轮询任务状态
    */
   const startPolling = (interval: number = 2000) => {
-    if (isPolling.value) {
+    if (pollInterval.value) {
+      console.log('轮询已在运行中')
       return
     }
 
-    isPolling.value = true
+    console.log('开始轮询任务状态，间隔:', interval, 'ms')
 
     pollInterval.value = setInterval(async () => {
       // 查找所有运行中的任务
-      const runningTasks = Array.from(tasks.value.values()).filter(
+      const runningTasks = tasks.value.filter(
         task => task.status === 'pending' || task.status === 'running'
       )
 
+      console.log('当前运行中的任务:', runningTasks.length, '个')
+
       if (runningTasks.length === 0) {
+        console.log('没有运行中的任务，停止轮询')
         stopPolling()
         return
       }
@@ -75,7 +82,7 @@ export function useTaskManager() {
       clearInterval(pollInterval.value)
       pollInterval.value = null
     }
-    isPolling.value = false
+    console.log('轮询已停止')
   }
 
   /**
@@ -104,7 +111,7 @@ export function useTaskManager() {
   const deleteTask = async (taskId: string, deleteFile: boolean = false) => {
     try {
       await ApiClient.deleteTask(taskId, deleteFile)
-      tasks.value.delete(taskId)
+      tasks.value = tasks.value.filter(t => t.task_id !== taskId)
     } catch (err) {
       console.error('删除任务失败:', err)
       throw err
@@ -114,21 +121,22 @@ export function useTaskManager() {
   /**
    * 获取排序后的任务列表
    */
-  const getSortedTasks = () => {
-    return Array.from(tasks.value.values()).sort(
+  const sortedTasks = computed(() => {
+    return [...tasks.value].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     )
-  }
+  })
 
   /**
    * 清空所有任务
    */
   const clearAllTasks = () => {
-    tasks.value.clear()
+    tasks.value = []
   }
 
   return {
     tasks,
+    sortedTasks,
     isPolling,
     loadAllTasks,
     getTaskStatus,
@@ -136,7 +144,7 @@ export function useTaskManager() {
     stopPolling,
     downloadTaskFile,
     deleteTask,
-    getSortedTasks,
+    getSortedTasks: () => sortedTasks.value,
     clearAllTasks
   }
 }

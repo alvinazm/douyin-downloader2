@@ -5,25 +5,34 @@ import { useTaskManager } from '@/composables/useTaskManager'
 import type { CommentExportTask } from '@/types/api'
 
 const router = useRouter()
+const taskManager = useTaskManager()
+
 const {
   tasks,
+  sortedTasks,
   isPolling,
   loadAllTasks,
   startPolling,
   stopPolling,
   downloadTaskFile,
-  deleteTask,
-  getSortedTasks
-} = useTaskManager()
+  deleteTask
+} = taskManager
 
 const selectedTasks = ref<Set<string>>(new Set())
 
 onMounted(async () => {
-  await loadAllTasks()
-  startPolling()
+  console.log('DownloadHistory mounted，开始加载任务...')
+  try {
+    await loadAllTasks()
+    console.log('任务已加载，开始轮询...')
+    startPolling()
+  } catch (err) {
+    console.error('加载任务时出错:', err)
+  }
 })
 
 onUnmounted(() => {
+  console.log('DownloadHistory unmounted，停止轮询')
   stopPolling()
 })
 
@@ -125,8 +134,6 @@ const handleBatchDelete = async () => {
   selectedTasks.value.clear()
   await loadAllTasks()
 }
-
-const sortedTasks = computed(() => getSortedTasks())
 </script>
 
 <template>
@@ -157,7 +164,7 @@ const sortedTasks = computed(() => getSortedTasks())
         </div>
 
         <!-- Tasks List -->
-        <div v-if="tasks.size > 0" class="space-y-4">
+        <div v-if="tasks.length > 0" class="space-y-4">
           <!-- Batch Actions -->
           <div v-if="selectedTasks.size > 0" class="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
             <span class="text-red-700">
