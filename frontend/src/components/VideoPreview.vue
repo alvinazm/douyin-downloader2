@@ -62,6 +62,7 @@ const downloadVideo = async (resultItem: any, type: 'nwm' | 'wm') => {
     return
   }
 
+  // 设置下载状态
   downloadingUrls.value.add(key)
 
   try {
@@ -72,27 +73,45 @@ const downloadVideo = async (resultItem: any, type: 'nwm' | 'wm') => {
     const originalUrl = resultItem.url
     const withWatermark = type === 'wm'
     
-    // 构建下载URL - 使用GET方式传递参数
+    // 构建下载URL
     const downloadUrl = `${apiBaseUrl}/download?url=${encodeURIComponent(originalUrl)}&prefix=true&with_watermark=${withWatermark}`
 
+    // 使用fetch发起请求，等待服务端完成后再恢复按钮状态
+    const response = await fetch(downloadUrl)
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(errorText || '下载失败')
+    }
+
+    // 获取文件名从响应头
+    const contentDisposition = response.headers.get('content-disposition')
+    let filename = getVideoFilename(resultItem, type)
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+      if (match) {
+        filename = match[1].replace(/['"]/g, '')
+      }
+    }
+
     // 创建下载链接
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
-    link.href = downloadUrl
-    link.download = getVideoFilename(resultItem, type)
+    link.href = url
+    link.download = filename
     link.style.display = 'none'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
 
-    // 1秒后清除下载状态
-    setTimeout(() => {
-      downloadingUrls.value.delete(key)
-    }, 1000)
-
-  } catch (err) {
+  } catch (err: any) {
     console.error('下载失败:', err)
     errorMessage.value = `下载失败：${err.message || '未知错误'}`
     showErrorModal.value = true
+  } finally {
+    // 无论成功或失败，都恢复按钮状态
     downloadingUrls.value.delete(key)
   }
 }
@@ -273,9 +292,9 @@ const getVideoFilename = (result: any, type: 'nwm' | 'wm') => {
                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                  </svg>
                  {{ downloadingUrls.has(`${result.url}_wm`) ? '下载中...' : '下载有水印(高清)' }}
-                </button>
-               </div>
-           </div>
+               </button>
+              </div>
+            </div>
 
           <div v-else-if="result.data.type === 'image'" class="space-y-3">
             <div class="text-sm font-semibold text-gray-900">图片预览</div>
