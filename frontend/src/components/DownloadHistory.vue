@@ -160,7 +160,7 @@ const handleBatchDelete = async () => {
       <main class="animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
         <div class="mb-8">
           <h1 class="text-3xl font-bold text-gray-900 mb-2">
-            下载历史
+            导出记录
           </h1>
           <p class="text-gray-600">
             查看和管理您的评论导出任务

@@ -38,7 +38,7 @@ const features = [
   {
     id: 'download-history',
     icon: '📥',
-    title: '下载历史',
+    title: '导出记录',
     description: '查看和管理您的评论导出任务',
     gradient: 'from-purple-500 to-purple-600'
   }

@@ -8,9 +8,10 @@ import type { VideoData } from '@/types/api'
 export const useConfigStore = defineStore('config', () => {
   // 状态
   const apiVersion = ref('V4.1.2')
-  const updateTime = ref('2025/03/16')
+  const updateTime = ref('2026/03/16')
   const environment = ref('Demo')
-  const maxTakeUrls = ref(30) // 单词最大解析链接数量30个
+  const maxTakeUrls = ref(30) // 单次最大解析链接数量30个
+  const maxComments = ref(50000) // 最大评论导出数量
   const downloadSwitch = ref(true)
   const downloadFilePrefix = ref('douyin.wtf_')
   const easterEgg = ref(true)
@@ -26,6 +27,7 @@ export const useConfigStore = defineStore('config', () => {
     if (newConfig.updateTime !== undefined) updateTime.value = newConfig.updateTime
     if (newConfig.environment !== undefined) environment.value = newConfig.environment
     if (newConfig.maxTakeUrls !== undefined) maxTakeUrls.value = newConfig.maxTakeUrls
+    if (newConfig.maxComments !== undefined) maxComments.value = newConfig.maxComments
     if (newConfig.downloadSwitch !== undefined) downloadSwitch.value = newConfig.downloadSwitch
     if (newConfig.downloadFilePrefix !== undefined) downloadFilePrefix.value = newConfig.downloadFilePrefix
     if (newConfig.easterEgg !== undefined) easterEgg.value = newConfig.easterEgg
@@ -38,6 +40,7 @@ export const useConfigStore = defineStore('config', () => {
     updateTime,
     environment,
     maxTakeUrls,
+    maxComments,
     downloadSwitch,
     downloadFilePrefix,
     easterEgg,

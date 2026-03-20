@@ -36,6 +36,7 @@ API:
 
   # Download Configuration
   Download_Switch: true    # Enable download function | 启用下载功能
+  Max_Comments: 50000    # Maximum number of comments to export | 最大评论导出数量
 
   # File Configuration
   Download_Path: "./download"    # Default download directory | 默认下载目录

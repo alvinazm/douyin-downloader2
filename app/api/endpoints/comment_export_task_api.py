@@ -3,6 +3,7 @@ from fastapi import APIRouter, Query, BackgroundTasks, HTTPException
 from starlette.responses import FileResponse
 from app.api.models.APIResponseModel import ErrorResponseModel
 from app.api.endpoints.comment_export_tasks import task_manager
+from app.config import MAX_COMMENTS
 
 router = APIRouter()
 
@@ -19,8 +20,8 @@ async def create_export_task(
     创建评论导出任务（异步执行）
     """
     # 限制最大评论数
-    if max_comments > 10000:
-        max_comments = 10000
+    if max_comments > MAX_COMMENTS:
+        max_comments = MAX_COMMENTS
 
     # 生成文件名
     if not filename:

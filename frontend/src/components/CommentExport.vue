@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCommentExporter } from '@/composables/useCommentExporter'
+import { useConfigStore } from '@/stores/config'
 
 interface Props {
   platform: 'douyin' | 'tiktok'
@@ -9,6 +10,7 @@ interface Props {
 
 const props = defineProps<Props>()
 const router = useRouter()
+const configStore = useConfigStore()
 const {
   isFetching,
   isExporting,
@@ -109,8 +111,8 @@ const validateInput = (): string | null => {
     }
   }
 
-  if (maxComments.value < 1 || maxComments.value > 10000) {
-    return '导出数量必须在1-10000之间'
+  if (maxComments.value < 1 || maxComments.value > configStore.maxComments) {
+    return `导出数量必须在1-${configStore.maxComments}之间`
   }
 
   return null
@@ -212,13 +214,13 @@ const goToHistory = () => {
 
       <div>
         <label class="block text-gray-900 font-medium mb-2">
-          最大导出数量 (1-10000)
+          最大导出数量 (1-{{ configStore.maxComments }})
         </label>
         <input
           v-model.number="maxComments"
           type="number"
           min="1"
-          max="10000"
+          :max="configStore.maxComments"
           placeholder="100"
           class="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
           :disabled="isFetching || isExporting"
@@ -249,7 +251,7 @@ const goToHistory = () => {
         @click="goToHistory"
         class="px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg font-medium hover:from-purple-600 hover:to-purple-700 transition-all duration-200"
       >
-        查看下载任务
+        查看导出进度
       </button>
     </div>
 

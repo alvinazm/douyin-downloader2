@@ -7,6 +7,7 @@ from fastapi import APIRouter, Request, Query, HTTPException
 from starlette.responses import FileResponse
 from crawlers.douyin.web.web_crawler import DouyinWebCrawler
 from app.api.models.APIResponseModel import ResponseModel, ErrorResponseModel
+from app.config import MAX_COMMENTS
 
 router = APIRouter()
 Crawler = DouyinWebCrawler()
@@ -202,7 +203,7 @@ async def export_comments_to_csv(
     - 使用流式处理，避免大量数据超时
     ### 参数:
     - aweme_id: 作品id
-    - max_comments: 最大获取评论数，默认100，最多10000
+    - max_comments: 最大获取评论数，默认100，最多{{ MAX_COMMENTS }}
     - filename: 自定义文件名（不含扩展名），默认使用aweme_id
     ### 返回:
     - 返回CSV文件供下载
@@ -214,7 +215,7 @@ async def export_comments_to_csv(
     - Uses streaming processing to avoid timeout for large datasets
     ### Parameters:
     - aweme_id: Video id
-    - max_comments: Maximum number of comments to fetch, default 100, max 10000
+    - max_comments: Maximum number of comments to fetch, default 100, max {{ MAX_COMMENTS }}
     - filename: Custom filename (without extension), default uses aweme_id
     ### Returns:
     - Return CSV file for download
@@ -225,8 +226,8 @@ async def export_comments_to_csv(
     """
     try:
         # 限制最大评论数
-        if max_comments > 10000:
-            max_comments = 10000
+        if max_comments > MAX_COMMENTS:
+            max_comments = MAX_COMMENTS
 
         # 生成文件名
         if not filename:

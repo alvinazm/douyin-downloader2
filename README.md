@@ -159,3 +159,10 @@ douyin-downloader/
 ├── start.sh              # PyWebIO方案启动脚本
 └── start-integrated.sh   # Vue.js方案启动脚本
 ```
+
+
+### 5. 导出数量配置
+
+配置在：frontend/src/stores/config.ts
+const maxTakeUrls = ref(30) // 单次最大解析链接数量30个
+const maxComments = ref(50000) // 最大评论导出数量
