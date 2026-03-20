@@ -40,7 +40,7 @@ onUnmounted(() => {
   stopPolling()
 })
 
-constgetStatusText = (status: string) => {
+const getStatusText = (status: string) => {
   const statusMap: Record<string, string> = {
     pending: '等待中',
     running: '进行中',
