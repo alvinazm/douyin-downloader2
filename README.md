@@ -164,5 +164,35 @@ douyin-downloader/
 ### 5. 导出数量配置
 
 配置在：config.yaml
-const maxTakeUrls = ref(30) // 单次最大解析链接数量30个
+Max_Take_URLs: 30    # Maximum number of URLs that can be taken at a time | 一次最多可以取得的URL数量
 Max_Comments: 50000    # Maximum number of comments to export | 最大评论导出数量
+
+####   Environment: Demo 的作用
+
+Environment: Demo 表示当前运行环境的类型，主要作用是：
+配置说明
+API:
+  Environment: Demo    # 可以是 "Demo"、"Production"、"Development" 等
+作用
+1. 标识运行环境
+- Demo - 演示/测试环境
+- Production - 生产环境
+- Development - 开发环境
+
+2. 后端用途
+- 在 API 文档（/docs）中显示当前环境
+- API 响应中包含环境信息
+- 便于区分不同的部署环境
+
+3. 前端用途（stores/config.ts）
+const isProduction = computed(() => environment.value === 'Production')
+const isDemo = computed(() => environment.value === 'Demo')
+- isProduction - 判断是否为生产环境
+- isDemo - 判断是否为演示环境
+- 在"关于"页面显示当前环境
+
+4. 可能的扩展用途
+- 根据环境启用/禁用某些功能
+- 不同环境使用不同的日志级别
+- 统计和监控的区分
+注意： 目前代码中主要用于显示和标识，没有实际改变应用行为。你可以根据需要在不同环境下添加不同的逻辑。
