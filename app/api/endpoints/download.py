@@ -11,6 +11,7 @@ from starlette.responses import FileResponse
 
 from app.api.models.APIResponseModel import ErrorResponseModel  # 导入响应模型
 from crawlers.hybrid.hybrid_crawler import HybridCrawler  # 导入混合数据爬虫
+from crawlers.youtube.youtube_crawler import YouTubeCrawler  # 导入YouTube爬虫
 
 router = APIRouter()
 HybridCrawler = HybridCrawler()
@@ -139,13 +140,13 @@ async def merge_bilibili_video_audio(
 
 @router.get(
     "/download",
-    summary="在线下载抖音|TikTok|Bilibili视频/图片/Online download Douyin|TikTok|Bilibili video/image",
+    summary="在线下载抖音|TikTok|Bilibili|YouTube视频/图片/Online download Douyin|TikTok|Bilibili|YouTube video/image",
 )
 async def download_file_hybrid(
     request: Request,
     url: str = Query(
         example="https://www.douyin.com/video/7372484719365098803",
-        description="视频或图片的URL地址，支持抖音|TikTok|Bilibili的分享链接，例如：https://v.douyin.com/e4J8Q7A/ 或 https://www.bilibili.com/video/BV1xxxxxxxxx",
+        description="视频或图片的URL地址，支持抖音|TikTok|Bilibili|YouTube的分享链接，例如：https://v.douyin.com/e4J8Q7A/ 或 https://www.bilibili.com/video/BV1xxxxxxxxx 或 https://www.youtube.com/watch?v=xxxx",
     ),
     prefix: bool = True,
     with_watermark: bool = False,
@@ -244,12 +245,34 @@ async def download_file_hybrid(
                     await HybridCrawler.BilibiliWebCrawler.get_bilibili_headers()
                 )
                 __headers = __headers_dict.get("headers")
+            elif platform == "youtube":
+                __headers = None
             else:  # douyin
                 __headers_dict = (
                     await HybridCrawler.DouyinWebCrawler.get_douyin_headers()
                 )
                 __headers = __headers_dict.get("headers")
 
+            # YouTube 特殊处理：使用 yt-dlp 下载
+            if platform == "youtube":
+                youtube_crawler = YouTubeCrawler()
+                try:
+                    downloaded_path = await youtube_crawler.download_video(
+                        url=url, output_path=download_path, filename=file_name
+                    )
+                    if not downloaded_path or not os.path.exists(downloaded_path):
+                        raise HTTPException(
+                            status_code=500,
+                            detail="Failed to download YouTube video",
+                        )
+                    return FileResponse(
+                        path=downloaded_path, filename=file_name, media_type="video/mp4"
+                    )
+                except Exception as e:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Failed to download YouTube video: {str(e)}",
+                    )
             # Bilibili 特殊处理：音视频分离
             if platform == "bilibili":
                 video_data = data.get("video_data", {})

@@ -99,13 +99,13 @@ def error_do(reason: str, value: str) -> None:
 
 def parse_video():
     placeholder = ViewsUtils.t(
-        "批量解析请直接粘贴多个口令或链接，无需使用符号分开，支持抖音和TikTok链接混合，暂时不支持作者主页链接批量解析。",
-        "Batch parsing, please paste multiple passwords or links directly, no need to use symbols to separate, support for mixing Douyin and TikTok links, temporarily not support for author home page link batch parsing.",
+        "批量解析请直接粘贴多个口令或链接，无需使用符号分开，支持抖音、TikTok、Bilibili、YouTube链接混合，暂时不支持作者主页链接批量解析。",
+        "Batch parsing, please paste multiple passwords or links directly, no need to use symbols to separate, support for mixing Douyin, TikTok, Bilibili and YouTube links, temporarily not support for author home page link batch parsing.",
     )
     input_data = textarea(
         ViewsUtils.t(
-            "请将抖音或TikTok的分享口令或网址粘贴于此",
-            "Please paste the share code or URL of [Douyin|TikTok] here",
+            "请将抖音、TikTok、Bilibili或YouTube的分享口令或网址粘贴于此",
+            "Please paste the share code or URL of [Douyin|TikTok|Bilibili|YouTube] here",
         ),
         type=TEXT,
         validate=valid_check,

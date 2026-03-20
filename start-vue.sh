@@ -36,6 +36,6 @@ echo "构建前端..."
 cd frontend && npm run build && cd ..
 
 # 设置PYTHONPATH
-export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+export PYTHONPATH="$(pwd):${PYTHONPATH}"
 
 python3 -m uvicorn app.vue_main:app --host 0.0.0.0 --port 8000 --reload
