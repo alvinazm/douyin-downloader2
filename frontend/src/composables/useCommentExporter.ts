@@ -96,13 +96,9 @@ export function useCommentExporter() {
       // 如果提供了URL但没有提供ID，则先提取ID
       if (!awemeId && params.url) {
         try {
-          const extractResponse = await ApiClient.fetchDouyinComments({
-            url: params.url,
-            max_comments: 5
-          })
-          // 从评论响应中提取ID（这只是预览，不会真正执行导出）
+          awemeId = await ApiClient.extractDouyinVideoId(params.url)
         } catch (err: any) {
-          // 忽略错误，继续尝试创建任务
+          throw new Error('无法从URL获取视频ID，请检查链接是否正确')
         }
       }
 
@@ -151,13 +147,9 @@ export function useCommentExporter() {
       // 如果提供了URL但没有提供ID，则先提取ID
       if (!awemeId && params.url) {
         try {
-          const extractResponse = await ApiClient.fetchTiktokComments({
-            url: params.url,
-            max_comments: 5
-          })
-          // 从评论响应中提取ID（这只是预览，不会真正执行导出）
+          awemeId = await ApiClient.extractTiktokVideoId(params.url)
         } catch (err: any) {
-          // 忽略错误，继续尝试创建任务
+          throw new Error('无法从URL获取视频ID，请检查链接是否正确')
         }
       }
 

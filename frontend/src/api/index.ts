@@ -92,6 +92,28 @@ export class ApiClient {
   }
 
   /**
+   * 提取抖音视频ID
+   */
+  static async extractDouyinVideoId(url: string): Promise<string> {
+    const response: AxiosResponse<ResponseModel<string>> = await apiClient.get('/douyin/web/get_aweme_id', {
+      params: { url }
+    })
+
+    return response.data.data as string
+  }
+
+  /**
+   * 提取TikTok视频ID
+   */
+  static async extractTiktokVideoId(url: string): Promise<string> {
+    const response: AxiosResponse<ResponseModel<string>> = await apiClient.get('/tiktok/web/get_aweme_id', {
+      params: { url }
+    })
+
+    return response.data.data as string
+  }
+
+  /**
    * 获取抖音评论（预览）
    */
   static async fetchDouyinComments(params: CommentExportParams): Promise<any[]> {

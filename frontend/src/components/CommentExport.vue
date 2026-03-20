@@ -78,24 +78,19 @@ const handleFetch = async () => {
 
 const handleExport = async () => {
   try {
-    let blob: Blob
-
     if (props.platform === 'douyin') {
-      blob = await exportDouyinComments({
+      await exportDouyinComments({
         aweme_id: exportType.value === 'id' ? awemeId.value.trim() : undefined,
         url: exportType.value === 'url' ? url.value.trim() : undefined,
         max_comments: maxComments.value
       })
     } else {
-      blob = await exportTiktokComments({
+      await exportTiktokComments({
         aweme_id: exportType.value === 'id' ? awemeId.value.trim() : undefined,
         url: exportType.value === 'url' ? url.value.trim() : undefined,
         max_comments: maxComments.value
       })
     }
-
-    const filename = `${props.platform}_comments_${Date.now()}.csv`
-    downloadCSV(blob, filename)
   } catch (err) {
     console.error('导出评论失败:', err)
     errorMessage.value = err.message || '未知错误'
