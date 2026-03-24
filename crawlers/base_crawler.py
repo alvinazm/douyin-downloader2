@@ -122,8 +122,11 @@ class BaseCrawler:
         Returns:
             dict: 解析后的JSON数据 (Parsed JSON data)
         """
+        logger.info(f"[BaseCrawler] 开始获取JSON数据: endpoint={endpoint}")
         response = await self.get_fetch_data(endpoint)
-        return self.parse_json(response)
+        result = self.parse_json(response)
+        logger.info(f"[BaseCrawler] JSON数据获取成功: endpoint={endpoint}")
+        return result
 
     async def fetch_post_json(
         self, endpoint: str, params: dict = {}, data=None
@@ -184,9 +187,17 @@ class BaseCrawler:
         Returns:
             response: 响应内容 (Response content)
         """
+        logger.info(
+            f"[BaseCrawler] 开始GET请求: URL={url}, max_retries={self._max_retries}"
+        )
+
         for attempt in range(self._max_retries):
             try:
+                logger.debug(
+                    f"[BaseCrawler] 尝试第 {attempt + 1}/{self._max_retries} 次请求..."
+                )
                 response = await self.aclient.get(url, follow_redirects=True)
+
                 if not response.text.strip() or not response.content:
                     error_message = (
                         "第 {0} 次响应内容为空, 状态码: {1}, URL:{2}".format(
@@ -194,19 +205,28 @@ class BaseCrawler:
                         )
                     )
 
-                    logger.warning(error_message)
+                    logger.warning(f"[BaseCrawler] {error_message}")
 
                     if attempt == self._max_retries - 1:
+                        logger.error(
+                            f"[BaseCrawler] 获取端点数据失败, 次数达到上限: {url}"
+                        )
                         raise APIRetryExhaustedError("获取端点数据失败, 次数达到上限")
 
                     await asyncio.sleep(self._timeout)
                     continue
 
+                logger.info(
+                    f"[BaseCrawler] GET请求成功: URL={url}, 状态码={response.status_code}"
+                )
                 # logger.info("响应状态码: {0}".format(response.status_code))
                 response.raise_for_status()
                 return response
 
-            except httpx.RequestError:
+            except httpx.RequestError as e:
+                logger.error(
+                    f"[BaseCrawler] 连接端点失败: URL={url}, Error={e}, 代理={self.proxies}"
+                )
                 raise APIConnectionError(
                     "连接端点失败，检查网络环境或代理：{0} 代理：{1} 类名：{2}".format(
                         url, self.proxies, self.__class__.__name__
@@ -217,6 +237,7 @@ class BaseCrawler:
                 self.handle_http_status_error(http_error, url, attempt + 1)
 
             except APIError as e:
+                logger.error(f"[BaseCrawler] API错误: {e}")
                 e.display_error()
 
     async def post_fetch_data(self, url: str, params: dict = {}, data=None):

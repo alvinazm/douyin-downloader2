@@ -42,14 +42,13 @@ import os  # 系统操作
 from crawlers.base_crawler import BaseCrawler
 from crawlers.tiktok.app.endpoints import TikTokAPIEndpoints
 from crawlers.utils.utils import model_to_query_string
+from crawlers.utils.logger import logger  # 导入日志模块
 
 # 重试机制
 from tenacity import *
 
 # TikTok接口数据请求模型
-from crawlers.tiktok.app.models import (
-    BaseRequestModel, FeedVideoDetail
-)
+from crawlers.tiktok.app.models import BaseRequestModel, FeedVideoDetail
 
 # 标记已废弃的方法
 from crawlers.utils.deprecated import deprecated
@@ -63,7 +62,6 @@ with open(f"{path}/config.yaml", "r", encoding="utf-8") as f:
 
 
 class TikTokAPPCrawler:
-
     # 从配置文件中获取TikTok的请求头
     async def get_tiktok_headers(self):
         tiktok_config = config["TokenManager"]["tiktok"]
@@ -74,8 +72,10 @@ class TikTokAPPCrawler:
                 "Cookie": tiktok_config["headers"]["Cookie"],
                 "x-ladon": "Hello From Evil0ctal!",
             },
-            "proxies": {"http://": tiktok_config["proxies"]["http"],
-                        "https://": tiktok_config["proxies"]["https"]}
+            "proxies": {
+                "http://": tiktok_config["proxies"]["http"],
+                "https://": tiktok_config["proxies"]["https"],
+            },
         }
         return kwargs
 
@@ -85,18 +85,29 @@ class TikTokAPPCrawler:
     # @deprecated("TikTok APP fetch_one_video is deprecated and will be removed in a future release. Use Web API instead. | TikTok APP fetch_one_video 已弃用，将在将来的版本中删除。请改用Web API。")
     @retry(stop=stop_after_attempt(10), wait=wait_fixed(1))
     async def fetch_one_video(self, aweme_id: str):
+        logger.info(f"[TikTokAPPCrawler] 开始获取TikTok视频数据, aweme_id={aweme_id}")
+
         # 获取TikTok的实时Cookie
         kwargs = await self.get_tiktok_headers()
         params = FeedVideoDetail(aweme_id=aweme_id)
         param_str = model_to_query_string(params)
         url = f"{TikTokAPIEndpoints.HOME_FEED}?{param_str}"
+        logger.info(f"[TikTokAPPCrawler] 构建请求URL: {url}")
+        logger.info(f"[TikTokAPPCrawler] 使用代理: {kwargs['proxies']}")
         # 创建一个基础爬虫
-        base_crawler = BaseCrawler(proxies=kwargs["proxies"], crawler_headers=kwargs["headers"])
+        base_crawler = BaseCrawler(
+            proxies=kwargs["proxies"], crawler_headers=kwargs["headers"]
+        )
         async with base_crawler as crawler:
+            logger.info(f"[TikTokAPPCrawler] 发送HTTP请求...")
             response = await crawler.fetch_get_json(url)
             response = response.get("aweme_list")[0]
             if response.get("aweme_id") != aweme_id:
+                logger.error(
+                    f"[TikTokAPPCrawler] 作品ID错误: 返回ID={response.get('aweme_id')}, 期望ID={aweme_id}"
+                )
                 raise Exception("作品ID错误/Video ID error")
+        logger.info(f"[TikTokAPPCrawler] TikTok视频数据获取成功")
         return response
 
     """-------------------------------------------------------main------------------------------------------------------"""

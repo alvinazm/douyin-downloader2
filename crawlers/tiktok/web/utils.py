@@ -463,6 +463,7 @@ class AwemeIdFetcher:
         Return:
             aweme_id: 作品唯一标识
         """
+        logger.info(f"[TikTokWebUtils] 开始获取aweme_id, URL={url}")
 
         # 进行参数检查
         if not isinstance(url, str):
@@ -475,32 +476,45 @@ class AwemeIdFetcher:
             raise APINotFoundError("输入的URL不合法。类名：{0}".format(cls.__name__))
 
         # 处理不是短连接的情况
-        if "tiktok" and "@" in url:
+        if "tiktok" in url and "@" in url:
+            logger.info(f"[TikTokWebUtils] 输入的URL无需重定向: {url}")
             print(f"输入的URL无需重定向: {url}")
             video_match = cls._TIKTOK_AWEMEID_PATTERN.search(url)
             photo_match = cls._TIKTOK_PHOTOID_PATTERN.search(url)
 
             if not video_match and not photo_match:
+                logger.error(
+                    f"[TikTokWebUtils] 未在URL中找到 aweme_id 或 photo_id: {url}"
+                )
                 raise APIResponseError("未在响应中找到 aweme_id 或 photo_id")
 
             aweme_id = video_match.group(1) if video_match else photo_match.group(1)
 
             if aweme_id is None:
+                logger.error(f"[TikTokWebUtils] 获取 aweme_id 或 photo_id 失败: {url}")
                 raise RuntimeError("获取 aweme_id 或 photo_id 失败，{0}".format(url))
 
+            logger.info(f"[TikTokWebUtils] 成功获取aweme_id: {aweme_id}")
             return aweme_id
 
         # 处理短连接的情况，根据重定向后的链接获取aweme_id
+        logger.info(f"[TikTokWebUtils] 输入的URL需要重定向: {url}")
         print(f"输入的URL需要重定向: {url}")
         transport = httpx.AsyncHTTPTransport(retries=10)
+        logger.info(f"[TikTokWebUtils] 使用代理: {TokenManager.proxies}")
         async with httpx.AsyncClient(
             transport=transport, proxies=TokenManager.proxies, timeout=10
         ) as client:
             try:
+                logger.info(f"[TikTokWebUtils] 发送重定向请求...")
                 response = await client.get(url, follow_redirects=True)
+                logger.info(
+                    f"[TikTokWebUtils] 重定向响应状态码: {response.status_code}, 最终URL: {response.url}"
+                )
 
                 if response.status_code in {200, 444}:
                     if cls._TIKTOK_NOTFOUND_PATTERN.search(str(response.url)):
+                        logger.error(f"[TikTokWebUtils] 页面不可用: {response.url}")
                         raise APINotFoundError(
                             "页面不可用，可能是由于区域限制（代理）造成的。类名: {0}".format(
                                 cls.__name__
@@ -511,11 +525,15 @@ class AwemeIdFetcher:
                     photo_match = cls._TIKTOK_PHOTOID_PATTERN.search(str(response.url))
 
                     if not video_match and not photo_match:
+                        logger.error(
+                            f"[TikTokWebUtils] 未在重定向URL中找到 aweme_id 或 photo_id: {response.url}"
+                        )
                         raise APIResponseError("未在响应中找到 aweme_id 或 photo_id")
 
                     aweme_id = (
                         video_match.group(1) if video_match else photo_match.group(1)
                     )
+                    logger.info(f"[TikTokWebUtils] 成功获取aweme_id: {aweme_id}")
 
                     if aweme_id is None:
                         raise RuntimeError(

@@ -40,6 +40,7 @@ from crawlers.tiktok.web.web_crawler import TikTokWebCrawler  # 导入TikTok Web
 from crawlers.tiktok.app.app_crawler import TikTokAPPCrawler  # 导入TikTok App爬虫
 from crawlers.bilibili.web.web_crawler import BilibiliWebCrawler  # 导入Bilibili Web爬虫
 from crawlers.youtube.youtube_crawler import YouTubeCrawler  # 导入YouTube爬虫
+from crawlers.utils.logger import logger  # 导入日志模块
 
 
 class HybridCrawler:
@@ -69,46 +70,68 @@ class HybridCrawler:
             raise ValueError(f"Cannot extract BV ID from URL: {url}")
 
     async def hybrid_parsing_single_video(self, url: str, minimal: bool = False):
+        logger.info(f"[HybridCrawler] 开始解析视频: URL={url}, minimal={minimal}")
+
         # 解析YouTube视频/Parse YouTube video
         if "youtube.com" in url or "youtu.be" in url or "youtube" in url.lower():
             platform = "youtube"
+            logger.info(f"[HybridCrawler] 识别为YouTube视频")
             aweme_id = self.YouTubeCrawler.extract_video_id(url)
             if not aweme_id:
                 raise ValueError(f"Cannot extract YouTube video ID from URL: {url}")
+            logger.info(f"[HybridCrawler] YouTube Video ID: {aweme_id}")
             data = await self.YouTubeCrawler.fetch_video_info(url)
             aweme_type = 0  # YouTube only has video type
         # 解析抖音视频/Parse Douyin video
         elif "douyin" in url:
             platform = "douyin"
+            logger.info(f"[HybridCrawler] 识别为抖音视频")
             aweme_id = await self.DouyinWebCrawler.get_aweme_id(url)
+            logger.info(f"[HybridCrawler] Douyin Aweme ID: {aweme_id}")
+            logger.info(f"[HybridCrawler] 开始获取抖音视频数据...")
             data = await self.DouyinWebCrawler.fetch_one_video(aweme_id)
             data = data.get("aweme_detail")
             # $.aweme_detail.aweme_type
             aweme_type = data.get("aweme_type")
+            logger.info(
+                f"[HybridCrawler] 抖音视频数据获取成功, aweme_type={aweme_type}"
+            )
         # 解析TikTok视频/Parse TikTok video
         elif "tiktok" in url:
             platform = "tiktok"
+            logger.info(f"[HybridCrawler] 识别为TikTok视频")
+            logger.info(f"[HybridCrawler] 开始获取TikTok视频ID...")
             aweme_id = await self.TikTokWebCrawler.get_aweme_id(url)
+            logger.info(f"[HybridCrawler] TikTok Aweme ID: {aweme_id}")
 
             # 2024-09-14: Switch to TikTokAPPCrawler instead of TikTokWebCrawler
             # data = await self.TikTokWebCrawler.fetch_one_video(aweme_id)
             # data = data.get("itemInfo").get("itemStruct")
-
+            logger.info(f"[HybridCrawler] 开始获取TikTok视频数据 (使用APP API)...")
             data = await self.TikTokAPPCrawler.fetch_one_video(aweme_id)
             # $.imagePost exists if aweme_type is photo
             aweme_type = data.get("aweme_type")
+            logger.info(
+                f"[HybridCrawler] TikTok视频数据获取成功, aweme_type={aweme_type}"
+            )
         # 解析Bilibili视频/Parse Bilibili video
         elif "bilibili" in url or "b23.tv" in url:
             platform = "bilibili"
+            logger.info(f"[HybridCrawler] 识别为Bilibili视频")
             aweme_id = await self.get_bilibili_bv_id(url)  # BV号作为统一的video_id
+            logger.info(f"[HybridCrawler] Bilibili BV ID: {aweme_id}")
             response = await self.BilibiliWebCrawler.fetch_one_video(aweme_id)
             data = response.get("data", {})  # 提取data部分
             # Bilibili只有视频类型，aweme_type设为0(video)
             aweme_type = 0
+            logger.info(f"[HybridCrawler] Bilibili视频数据获取成功")
         else:
+            logger.error(f"[HybridCrawler] 无法识别视频平台: URL={url}")
             raise ValueError(
                 "hybrid_parsing_single_video: Cannot judge the video source from the URL."
             )
+
+        logger.info(f"[HybridCrawler] 视频数据获取完成, platform={platform}")
 
         # 检查是否需要返回最小数据/Check if minimal data is required
         if not minimal:

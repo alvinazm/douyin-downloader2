@@ -6,5 +6,5 @@ TokenManager:
       Cookie: CykaBlyat=XD
 
     proxies:
-      http:
-      https:
+      http: 
+      https: 

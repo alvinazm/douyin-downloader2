@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 
 from fastapi import APIRouter, Body, Query, Request, HTTPException  # 导入FastAPI组件
 
@@ -9,6 +10,7 @@ from app.api.models.APIResponseModel import (
 
 # 爬虫/Crawler
 from crawlers.hybrid.hybrid_crawler import HybridCrawler  # 导入混合爬虫
+from crawlers.utils.logger import logger  # 导入日志模块
 
 HybridCrawler = HybridCrawler()  # 实例化混合爬虫
 
@@ -46,12 +48,18 @@ async def hybrid_parsing_single_video(
     # [Example]
     url = "https://v.douyin.com/L4FJNR3/"
     """
+    logger.info(f"[Hybrid-API] 开始解析视频: URL={url}, minimal={minimal}")
+
     try:
         # 解析视频/Parse video
+        logger.info(f"[Hybrid-API] 调用爬虫解析视频...")
         data = await HybridCrawler.hybrid_parsing_single_video(url=url, minimal=minimal)
+        logger.info(f"[Hybrid-API] 视频解析成功: URL={url}")
         # 返回数据/Return data
         return ResponseModel(code=200, router=request.url.path, data=data)
     except Exception as e:
+        logger.error(f"[Hybrid-API] 视频解析失败: URL={url}, Error={str(e)}")
+        logger.error(f"[Hybrid-API] 错误堆栈: {traceback.format_exc()}")
         status_code = 400
         detail = ErrorResponseModel(
             code=status_code,
@@ -95,6 +103,8 @@ async def update_cookie_api(
     service = "douyin_web"
     cookie = "YOUR_NEW_COOKIE"
     """
+    logger.info(f"[Hybrid-API] 更新Cookie请求: service={service}")
+
     try:
         if service == "douyin":
             from crawlers.douyin.web.web_crawler import DouyinWebCrawler
