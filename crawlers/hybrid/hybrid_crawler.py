@@ -283,26 +283,32 @@ class HybridCrawler:
             }
             # TikTok视频数据处理/TikTok video data processing
             if url_type == "video":
-                # 将信息储存在字典中/Store information in a dictionary
-                # wm_video = data['video']['downloadAddr']
-                # wm_video = data['video']['download_addr']['url_list'][0]
-                wm_video = (
+                download_addr = (
                     data.get("video", {})
                     .get("download_addr", {})
                     .get("url_list", [None])[0]
                 )
 
-                # 尝试获取最高质量的视频（遍历bit_rate获取最高质量）
                 bit_rate_list = data.get("video", {}).get("bit_rate", [])
+                best_size = 0
+                best_video_url = None
+
                 if bit_rate_list:
-                    # 按比特率排序，选择最高的
-                    best_bitrate = max(
-                        bit_rate_list, key=lambda x: x.get("bit_rate", 0)
-                    )
-                    best_play_addr = best_bitrate.get("play_addr", {})
-                    nwm_video_url_HQ = best_play_addr.get("url_list", [None])[0]
-                else:
-                    nwm_video_url_HQ = data["video"]["play_addr"]["url_list"][0]
+                    for bit_item in bit_rate_list:
+                        play_addr = bit_item.get("play_addr", {})
+                        if play_addr.get("url_list"):
+                            url_info = play_addr["url_list"][0]
+                            size = (
+                                url_info.get("size", 0)
+                                if isinstance(url_info, dict)
+                                else 0
+                            )
+                            if size > best_size:
+                                best_size = size
+                                best_video_url = play_addr.get("url_list", [None])[0]
+
+                nwm_video_url_HQ = best_video_url if best_video_url else download_addr
+                wm_video = download_addr
 
                 api_data = {
                     "video_data": {
