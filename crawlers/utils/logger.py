@@ -102,7 +102,9 @@ class LogManager(metaclass=Singleton):
         if log_path:
             self.log_dir = Path(log_path)
             self.ensure_log_dir_exists(self.log_dir)
-            log_file_name = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S.log")
+            log_file_name = datetime.datetime.now().strftime(
+                "parser_video_%Y-%m-%d.log"
+            )
             log_file = self.log_dir.joinpath(log_file_name)
             fh = TimedRotatingFileHandler(
                 log_file, when="midnight", interval=1, backupCount=99, encoding="utf-8"

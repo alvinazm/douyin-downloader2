@@ -196,3 +196,9 @@ const isDemo = computed(() => environment.value === 'Demo')
 - 不同环境使用不同的日志级别
 - 统计和监控的区分
 注意： 目前代码中主要用于显示和标识，没有实际改变应用行为。你可以根据需要在不同环境下添加不同的逻辑。
+
+# 日志
+
+server.log 是服务器启动日志，也记录了视频解析、下载结果，可以作为备份日志；
+logs/parser_video_2026-03-25.log 是视频解析日志
+logs/download_video_2026-03-25.log 是视频下载日志

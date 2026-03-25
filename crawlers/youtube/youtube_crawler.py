@@ -7,11 +7,6 @@ import tempfile
 import asyncio
 from typing import Optional, Dict, Any
 
-sys.path.insert(
-    0,
-    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "yt-dlp"),
-)
-
 import yt_dlp
 
 
@@ -152,10 +147,29 @@ class YouTubeCrawler:
 
         await loop.run_in_executor(None, _sync_download)
 
+        video_id = url.split("v=")[1].split("&")[0] if "v=" in url else None
+
+        if filename and video_id:
+            import glob as glob_module
+
+            pattern = os.path.join(output_path, f"*{video_id}*.mp4")
+            matches = glob_module.glob(pattern)
+            if matches:
+                downloaded_path[0] = matches[0]
+                print(f"DEBUG: found downloaded file: {downloaded_path[0]}")
+
+        print(
+            f"DEBUG: downloaded_path={downloaded_path[0]}, exists={os.path.exists(downloaded_path[0]) if downloaded_path[0] else False}"
+        )
+
         if downloaded_path[0] and os.path.exists(downloaded_path[0]):
             if filename:
                 final_path = os.path.join(output_path, filename)
-                os.rename(downloaded_path[0], final_path)
+                print(f"DEBUG: renaming {downloaded_path[0]} to {final_path}")
+                import shutil
+
+                shutil.copy2(downloaded_path[0], final_path)
+                os.remove(downloaded_path[0])
                 return final_path
             return downloaded_path[0]
         else:

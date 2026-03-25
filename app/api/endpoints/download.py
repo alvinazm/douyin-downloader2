@@ -2,6 +2,8 @@ import os
 import zipfile
 import subprocess
 import tempfile
+import uuid
+import time
 
 import aiofiles
 import httpx
@@ -12,9 +14,11 @@ from starlette.responses import FileResponse
 from app.api.models.APIResponseModel import ErrorResponseModel  # 导入响应模型
 from crawlers.hybrid.hybrid_crawler import HybridCrawler  # 导入混合数据爬虫
 from crawlers.youtube.youtube_crawler import YouTubeCrawler  # 导入YouTube爬虫
+from app.utils.logger import get_logger
 
 router = APIRouter()
 HybridCrawler = HybridCrawler()
+logger = get_logger("DownloadAPI")
 
 # 读取上级再上级目录的配置文件
 config_path = os.path.join(
@@ -41,34 +45,69 @@ async def fetch_data(url: str, headers: dict = None):
 
 # 下载视频专用
 async def fetch_data_stream(
-    url: str, request: Request, headers: dict = None, file_path: str = None
+    url: str,
+    request: Request,
+    headers: dict = None,
+    file_path: str = None,
+    request_id: str = None,
 ):
-    headers = (
-        {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        }
-        if headers is None
-        else headers
-    )
-    async with httpx.AsyncClient() as client:
-        # 启用流式请求
-        async with client.stream("GET", url, headers=headers) as response:
-            response.raise_for_status()
+    try:
+        headers = (
+            {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            }
+            if headers is None
+            else headers
+        )
+        headers.setdefault("Referer", "https://www.douyin.com/")
+        headers.setdefault(
+            "User-Agent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        )
 
-            # 流式保存文件
-            async with aiofiles.open(file_path, "wb") as out_file:
-                async for chunk in response.aiter_bytes():
-                    if await request.is_disconnected():
-                        print("客户端断开连接，清理未完成的文件")
-                        await out_file.close()
-                        os.remove(file_path)
-                        return False
-                    await out_file.write(chunk)
-            return True
+        async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
+            async with client.stream("GET", url, headers=headers) as response:
+                content_type = response.headers.get("content-type", "")
+                if "text/html" in content_type:
+                    logger.warning(
+                        f"Received HTML instead of video. URL: {url}",
+                        request_id=request_id,
+                    )
+                    text_content = await response.aread()
+                    logger.debug(
+                        f"Response content (first 500 chars): {text_content[:500]}",
+                        request_id=request_id,
+                    )
+                    return False
+
+                response.raise_for_status()
+
+                async with aiofiles.open(file_path, "wb") as out_file:
+                    async for chunk in response.aiter_bytes():
+                        if await request.is_disconnected():
+                            logger.warning(
+                                "Client disconnected, cleaning up incomplete file",
+                                request_id=request_id,
+                            )
+                            await out_file.close()
+                            os.remove(file_path)
+                            return False
+                        await out_file.write(chunk)
+                return True
+    except Exception as e:
+        logger.error(
+            f"Download stream error: {str(e)}", exc_info=True, request_id=request_id
+        )
+        return False
 
 
 async def merge_bilibili_video_audio(
-    video_url: str, audio_url: str, request: Request, output_path: str, headers: dict
+    video_url: str,
+    audio_url: str,
+    request: Request,
+    output_path: str,
+    headers: dict,
+    request_id: str = None,
 ) -> bool:
     """
     下载并合并 Bilibili 的视频流和音频流
@@ -82,15 +121,25 @@ async def merge_bilibili_video_audio(
 
         # 下载视频流
         video_success = await fetch_data_stream(
-            video_url, request, headers=headers, file_path=video_temp_path
+            video_url,
+            request,
+            headers=headers,
+            file_path=video_temp_path,
+            request_id=request_id,
         )
         # 下载音频流
         audio_success = await fetch_data_stream(
-            audio_url, request, headers=headers, file_path=audio_temp_path
+            audio_url,
+            request,
+            headers=headers,
+            file_path=audio_temp_path,
+            request_id=request_id,
         )
 
         if not video_success or not audio_success:
-            print("Failed to download video or audio stream")
+            logger.error(
+                "Failed to download video or audio stream", request_id=request_id
+            )
             return False
 
         # 使用 FFmpeg 合并视频和音频
@@ -110,13 +159,13 @@ async def merge_bilibili_video_audio(
             output_path,
         ]
 
-        print(f"FFmpeg command: {' '.join(ffmpeg_cmd)}")
+        logger.info(f"FFmpeg command: {' '.join(ffmpeg_cmd)}", request_id=request_id)
         result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
-        print(f"FFmpeg return code: {result.returncode}")
+        logger.info(f"FFmpeg return code: {result.returncode}", request_id=request_id)
         if result.stderr:
-            print(f"FFmpeg stderr: {result.stderr}")
+            logger.debug(f"FFmpeg stderr: {result.stderr}", request_id=request_id)
         if result.stdout:
-            print(f"FFmpeg stdout: {result.stdout}")
+            logger.debug(f"FFmpeg stdout: {result.stdout}", request_id=request_id)
 
         # 清理临时文件
         try:
@@ -134,7 +183,9 @@ async def merge_bilibili_video_audio(
             os.unlink(audio_temp_path)
         except:
             pass
-        print(f"Error merging video and audio: {e}")
+        logger.error(
+            f"Error merging video and audio: {e}", request_id=request_id, exc_info=True
+        )
         return False
 
 
@@ -183,16 +234,168 @@ async def download_file_hybrid(
     # [示例/Example]
     url: https://www.bilibili.com/video/BV1U5efz2Egn
     """
+    # 生成请求ID用于追踪
+    request_id = str(uuid.uuid4().hex)[:8]
+    start_time = time.time()
+
+    logger.info(
+        f"[{request_id}] Download request started. URL: {url}, with_watermark: {with_watermark}, prefix: {prefix}"
+    )
+
     # 是否开启此端点/Whether to enable this endpoint
     if not config["API"]["Download_Switch"]:
         code = 400
         message = "Download endpoint is disabled in the configuration file. | 配置文件中已禁用下载端点。"
+        logger.warning(f"[{request_id}] Download endpoint disabled")
         return ErrorResponseModel(
             code=code,
             message=message,
             router=request.url.path,
             params=dict(request.query_params),
         )
+
+    # 从URL中提取平台和video_id，用于快速检查文件是否存在
+    url_lower = url.lower()
+    fast_path_found = False
+    file_prefix = config.get("API").get("Download_File_Prefix") if prefix else ""
+
+    # YouTube: https://www.youtube.com/watch?v=xxx 或 https://youtu.be/xxx
+    if "youtube.com" in url_lower or "youtu.be" in url_lower:
+        import re
+
+        match = re.search(r"(?:v=|/v/|/watch\?v=|/shorts/)([a-zA-Z0-9_-]{11})", url)
+        if match:
+            video_id = match.group(1)
+            platform = "youtube"
+            download_path = os.path.join(
+                config.get("API").get("Download_Path"), f"{platform}_video"
+            )
+            os.makedirs(download_path, exist_ok=True)
+            file_name = (
+                f"{file_prefix}{platform}_{video_id}.mp4"
+                if not with_watermark
+                else f"{file_prefix}{platform}_{video_id}_watermark.mp4"
+            )
+            file_path = os.path.join(download_path, file_name)
+            if os.path.exists(file_path):
+                file_size = os.path.getsize(file_path)
+                logger.info(
+                    f"[{request_id}] File already exists, returning directly: {file_path}"
+                )
+                response = FileResponse(
+                    path=file_path, filename=file_name, media_type="video/mp4"
+                )
+                response.headers["Content-Disposition"] = (
+                    f"attachment; filename={file_name}"
+                )
+                response.headers["Content-Length"] = str(file_size)
+                return response
+            fast_path_found = True
+
+    # TikTok: https://www.tiktok.com/@user/video/1234567890123456789
+    if "tiktok.com" in url_lower and not fast_path_found:
+        import re
+
+        match = re.search(r"/video/(\d+)", url)
+        if match:
+            video_id = match.group(1)
+            platform = "tiktok"
+            download_path = os.path.join(
+                config.get("API").get("Download_Path"), f"{platform}_video"
+            )
+            os.makedirs(download_path, exist_ok=True)
+            file_name = (
+                f"{file_prefix}{platform}_{video_id}.mp4"
+                if not with_watermark
+                else f"{file_prefix}{platform}_{video_id}_watermark.mp4"
+            )
+            file_path = os.path.join(download_path, file_name)
+            if os.path.exists(file_path):
+                file_size = os.path.getsize(file_path)
+                logger.info(
+                    f"[{request_id}] File already exists, returning directly: {file_path}"
+                )
+                response = FileResponse(
+                    path=file_path, filename=file_name, media_type="video/mp4"
+                )
+                response.headers["Content-Disposition"] = (
+                    f"attachment; filename={file_name}"
+                )
+                response.headers["Content-Length"] = str(file_size)
+                return response
+            fast_path_found = True
+
+    # Douyin: https://www.douyin.com/video/1234567890123456789 或 https://v.douyin.com/xxx
+    if (
+        "douyin.com" in url_lower or "v.douyin.com" in url_lower
+    ) and not fast_path_found:
+        import re
+
+        # 尝试匹配 video/后面的数字ID
+        match = re.search(r"/video/(\d+)", url)
+        if match:
+            video_id = match.group(1)
+            platform = "douyin"
+            download_path = os.path.join(
+                config.get("API").get("Download_Path"), f"{platform}_video"
+            )
+            os.makedirs(download_path, exist_ok=True)
+            file_name = (
+                f"{file_prefix}{platform}_{video_id}.mp4"
+                if not with_watermark
+                else f"{file_prefix}{platform}_{video_id}_watermark.mp4"
+            )
+            file_path = os.path.join(download_path, file_name)
+            if os.path.exists(file_path):
+                file_size = os.path.getsize(file_path)
+                logger.info(
+                    f"[{request_id}] File already exists, returning directly: {file_path}"
+                )
+                response = FileResponse(
+                    path=file_path, filename=file_name, media_type="video/mp4"
+                )
+                response.headers["Content-Disposition"] = (
+                    f"attachment; filename={file_name}"
+                )
+                response.headers["Content-Length"] = str(file_size)
+                return response
+            fast_path_found = True
+
+    # Bilibili: https://www.bilibili.com/video/BVxxx 或 https://www.bilibili.com/video/avxxx
+    if "bilibili.com" in url_lower and not fast_path_found:
+        import re
+
+        # BV号: /video/(BV[a-zA-Z0-9]+)
+        match = re.search(r"/video/(BV[a-zA-Z0-9]+)", url)
+        if not match:
+            # av号: /video/(av\d+)
+            match = re.search(r"/video/(av\d+)", url)
+        if match:
+            video_id = match.group(1)
+            platform = "bilibili"
+            download_path = os.path.join(
+                config.get("API").get("Download_Path"), f"{platform}_video"
+            )
+            os.makedirs(download_path, exist_ok=True)
+            file_name = (
+                f"{file_prefix}{platform}_{video_id}.mp4"
+                if not with_watermark
+                else f"{file_prefix}{platform}_{video_id}_watermark.mp4"
+            )
+            file_path = os.path.join(download_path, file_name)
+            if os.path.exists(file_path):
+                file_size = os.path.getsize(file_path)
+                logger.info(
+                    f"[{request_id}] File already exists, returning directly: {file_path}"
+                )
+                response = FileResponse(
+                    path=file_path, filename=file_name, media_type="video/mp4"
+                )
+                response.headers["Content-Disposition"] = (
+                    f"attachment; filename={file_name}"
+                )
+                response.headers["Content-Length"] = str(file_size)
+                return response
 
     # 开始解析数据/Start parsing data
     try:
@@ -265,9 +468,19 @@ async def download_file_hybrid(
                             status_code=500,
                             detail="Failed to download YouTube video",
                         )
-                    return FileResponse(
+                    file_size = os.path.getsize(downloaded_path)
+                    elapsed = time.time() - start_time
+                    logger.info(
+                        f"[{request_id}] Download success. platform=youtube, video_id={video_id}, file={downloaded_path}, size={file_size}, elapsed={elapsed:.2f}s"
+                    )
+                    response = FileResponse(
                         path=downloaded_path, filename=file_name, media_type="video/mp4"
                     )
+                    response.headers["Content-Disposition"] = (
+                        f"attachment; filename={file_name}"
+                    )
+                    response.headers["Content-Length"] = str(file_size)
+                    return response
                 except Exception as e:
                     raise HTTPException(
                         status_code=500,
@@ -282,21 +495,46 @@ async def download_file_hybrid(
                     else video_data.get("wm_video_url_HQ")
                 )
                 audio_url = video_data.get("audio_url")
-                if not video_url or not audio_url:
+                if not video_url:
                     raise HTTPException(
                         status_code=500,
-                        detail="Failed to get video or audio URL from Bilibili",
+                        detail="Failed to get video URL from Bilibili",
                     )
 
-                # 使用专门的函数合并音视频
-                success = await merge_bilibili_video_audio(
-                    video_url, audio_url, request, file_path, __headers
-                )
-                if not success:
-                    raise HTTPException(
-                        status_code=500,
-                        detail="Failed to merge Bilibili video and audio streams",
+                # 如果有 audio_url（durl 格式），音视频分开，需要合并
+                # 如果没有 audio_url（durl 格式），音视频已合并，直接下载
+                if audio_url:
+                    logger.info(
+                        f"[{request_id}] Bilibili download (DASH). video_id={video_id}, video_url={video_url[:80]}..., audio_url={audio_url[:80]}..."
                     )
+                    success = await merge_bilibili_video_audio(
+                        video_url, audio_url, request, file_path, __headers, request_id
+                    )
+                    if not success:
+                        raise HTTPException(
+                            status_code=500,
+                            detail="Failed to merge Bilibili video and audio streams",
+                        )
+                else:
+                    logger.info(
+                        f"[{request_id}] Bilibili download (durl). video_id={video_id}, video_url={video_url[:80]}..."
+                    )
+                    # 设置 Bilibili 专用的 Referer
+                    if __headers is None:
+                        __headers = {}
+                    __headers["Referer"] = "https://www.bilibili.com/"
+                    success = await fetch_data_stream(
+                        video_url,
+                        request,
+                        headers=__headers,
+                        file_path=file_path,
+                        request_id=request_id,
+                    )
+                    if not success:
+                        raise HTTPException(
+                            status_code=500,
+                            detail="Failed to download Bilibili video",
+                        )
             else:
                 # 其他平台的常规处理
                 url = (
@@ -304,8 +542,15 @@ async def download_file_hybrid(
                     if not with_watermark
                     else data.get("video_data").get("wm_video_url_HQ")
                 )
+                logger.info(
+                    f"[{request_id}] Download started. platform={platform}, video_id={video_id}, url={url[:80]}..."
+                )
                 success = await fetch_data_stream(
-                    url, request, headers=__headers, file_path=file_path
+                    url,
+                    request,
+                    headers=__headers,
+                    file_path=file_path,
+                    request_id=request_id,
                 )
                 if not success:
                     raise HTTPException(
@@ -317,6 +562,11 @@ async def download_file_hybrid(
             #     await out_file.write(response.content)
 
             # 返回文件内容
+            file_size = os.path.getsize(file_path)
+            elapsed = time.time() - start_time
+            logger.info(
+                f"[{request_id}] Download success. platform={platform}, video_id={video_id}, file={file_path}, size={file_size}, elapsed={elapsed:.2f}s"
+            )
             return FileResponse(
                 path=file_path, filename=file_name, media_type="video/mp4"
             )
@@ -376,7 +626,11 @@ async def download_file_hybrid(
 
     # 异常处理/Exception handling
     except Exception as e:
-        print(e)
+        elapsed = time.time() - start_time
+        logger.error(
+            f"[{request_id}] Download failed. URL: {url}, error: {str(e)}, elapsed: {elapsed:.2f}s",
+            exc_info=True,
+        )
         code = 400
         return ErrorResponseModel(
             code=code,

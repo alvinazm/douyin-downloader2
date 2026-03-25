@@ -231,6 +231,24 @@ class HybridCrawler:
                 wm_video_url = f"https://aweme.snssdk.com/aweme/v1/playwm/?video_id={uri}&radio=1080p&line=0"
                 nwm_video_url_HQ = wm_video_url_HQ.replace("playwm", "play")
                 nwm_video_url = f"https://aweme.snssdk.com/aweme/v1/play/?video_id={uri}&ratio=1080p&line=0"
+
+                # 尝试获取更高质量的视频（遍历bit_rate获取最高质量）
+                bit_rate_list = data.get("video", {}).get("bit_rate", [])
+                if bit_rate_list:
+                    # 按比特率排序，选择最高的
+                    best_bitrate = max(
+                        bit_rate_list, key=lambda x: x.get("bit_rate", 0)
+                    )
+                    best_play_addr = best_bitrate.get("play_addr", {})
+                    nwm_video_url_HQ = best_play_addr.get(
+                        "url_list", [nwm_video_url_HQ]
+                    )[0]
+                    wm_video_url_HQ = best_play_addr.get("url_list", [wm_video_url_HQ])[
+                        0
+                    ]
+                    nwm_video_url = nwm_video_url_HQ
+                    wm_video_url = wm_video_url_HQ
+
                 api_data = {
                     "video_data": {
                         "wm_video_url": wm_video_url,
@@ -274,16 +292,24 @@ class HybridCrawler:
                     .get("url_list", [None])[0]
                 )
 
+                # 尝试获取最高质量的视频（遍历bit_rate获取最高质量）
+                bit_rate_list = data.get("video", {}).get("bit_rate", [])
+                if bit_rate_list:
+                    # 按比特率排序，选择最高的
+                    best_bitrate = max(
+                        bit_rate_list, key=lambda x: x.get("bit_rate", 0)
+                    )
+                    best_play_addr = best_bitrate.get("play_addr", {})
+                    nwm_video_url_HQ = best_play_addr.get("url_list", [None])[0]
+                else:
+                    nwm_video_url_HQ = data["video"]["play_addr"]["url_list"][0]
+
                 api_data = {
                     "video_data": {
                         "wm_video_url": wm_video,
                         "wm_video_url_HQ": wm_video,
-                        # 'nwm_video_url': data['video']['playAddr'],
-                        "nwm_video_url": data["video"]["play_addr"]["url_list"][0],
-                        # 'nwm_video_url_HQ': data['video']['bitrateInfo'][0]['PlayAddr']['UrlList'][0]
-                        "nwm_video_url_HQ": data["video"]["bit_rate"][0]["play_addr"][
-                            "url_list"
-                        ][0],
+                        "nwm_video_url": nwm_video_url_HQ,
+                        "nwm_video_url_HQ": nwm_video_url_HQ,
                     }
                 }
             # TikTok图片数据处理/TikTok image data processing
@@ -320,14 +346,29 @@ class HybridCrawler:
                     playurl_data = await self.BilibiliWebCrawler.fetch_video_playurl(
                         aweme_id, str(cid)
                     )
-                    # 从播放数据中提取URL
-                    dash = playurl_data.get("data", {}).get("dash", {})
+
+                    data = playurl_data.get("data", {})
+                    dash = data.get("dash", {})
+                    durl = data.get("durl", [])  # 非DASH格式的视频URL列表
+
                     video_list = dash.get("video", [])
                     audio_list = dash.get("audio", [])
 
-                    # 选择最高质量的视频流
-                    video_url = video_list[0].get("baseUrl") if video_list else None
-                    audio_url = audio_list[0].get("baseUrl") if audio_list else None
+                    video_url = None
+                    audio_url = None
+
+                    # 优先从 durl 获取最高质量（非DASH格式通常更高清）
+                    if durl:
+                        # 按 size 字段排序，选择最大的
+                        best_durl = max(durl, key=lambda x: x.get("size", 0))
+                        video_url = best_durl.get("url")
+                        # durl格式中音视频在一起，不需要单独获取音频
+                    elif video_list:
+                        # quality值越大越清晰
+                        best_video = max(video_list, key=lambda x: x.get("quality", 0))
+                        video_url = best_video.get("baseUrl")
+                        # 选择最高质量的音频流
+                        audio_url = audio_list[0].get("baseUrl") if audio_list else None
 
                     api_data = {
                         "video_data": {

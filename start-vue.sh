@@ -38,4 +38,6 @@ cd frontend && npm run build && cd ..
 # 设置PYTHONPATH
 export PYTHONPATH="$(pwd):${PYTHONPATH}"
 
-python3 -m uvicorn app.vue_main:app --host 0.0.0.0 --port 8000 --reload
+# 启动服务器并配置日志
+mkdir -p logs
+python3 -m uvicorn app.vue_main:app --host 0.0.0.0 --port 8000 --reload 2>&1 | tee -a server.log
