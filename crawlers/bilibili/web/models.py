@@ -32,6 +32,6 @@ class ComPopular(BaseRequestsModel):
 
 class PlayUrl(BaseRequestsModel):
     qn: str
-    fnval: str = "4048"
+    fnval: str = "0"
     bvid: str
     cid: str

@@ -342,42 +342,64 @@ class HybridCrawler:
                 # 获取视频播放地址需要额外调用API
                 cid = data.get("cid")  # 获取cid
                 if cid:
-                    # 获取播放链接，cid需要转换为字符串
-                    playurl_data = await self.BilibiliWebCrawler.fetch_video_playurl(
-                        aweme_id, str(cid)
-                    )
+                    # 尝试多个fnval值获取最高清晰度
+                    best_result = None
+                    best_size = 0
 
-                    data = playurl_data.get("data", {})
-                    dash = data.get("dash", {})
-                    durl = data.get("durl", [])  # 非DASH格式的视频URL列表
+                    for fnval in ["0", "4048"]:
+                        playurl_data = (
+                            await self.BilibiliWebCrawler.fetch_video_playurl(
+                                aweme_id, str(cid), fnval=fnval
+                            )
+                        )
 
-                    video_list = dash.get("video", [])
-                    audio_list = dash.get("audio", [])
+                        data = playurl_data.get("data", {})
+                        dash = data.get("dash", {})
+                        durl = data.get("durl", [])
 
-                    video_url = None
-                    audio_url = None
+                        video_list = dash.get("video", [])
+                        audio_list = dash.get("audio", [])
 
-                    # 优先从 durl 获取最高质量（非DASH格式通常更高清）
-                    if durl:
-                        # 按 size 字段排序，选择最大的
-                        best_durl = max(durl, key=lambda x: x.get("size", 0))
-                        video_url = best_durl.get("url")
-                        # durl格式中音视频在一起，不需要单独获取音频
-                    elif video_list:
-                        # quality值越大越清晰
-                        best_video = max(video_list, key=lambda x: x.get("quality", 0))
-                        video_url = best_video.get("baseUrl")
-                        # 选择最高质量的音频流
-                        audio_url = audio_list[0].get("baseUrl") if audio_list else None
+                        current_video_url = None
+                        current_audio_url = None
+                        current_size = 0
+
+                        if durl:
+                            best_durl = max(durl, key=lambda x: x.get("size", 0))
+                            current_video_url = best_durl.get("url")
+                            current_size = best_durl.get("size", 0)
+                        elif video_list:
+                            best_video = max(
+                                video_list, key=lambda x: x.get("quality", 0)
+                            )
+                            current_video_url = best_video.get("baseUrl")
+                            audio_size = (
+                                audio_list[0].get("size", 0) if audio_list else 0
+                            )
+                            current_size = best_video.get("size", 0) + audio_size
+                            current_audio_url = (
+                                audio_list[0].get("baseUrl") if audio_list else None
+                            )
+
+                        if current_size > best_size and current_video_url:
+                            best_size = current_size
+                            best_result = {
+                                "video_url": current_video_url,
+                                "audio_url": current_audio_url,
+                                "fnval": fnval,
+                            }
+
+                    video_url = best_result["video_url"] if best_result else None
+                    audio_url = best_result["audio_url"] if best_result else None
 
                     api_data = {
                         "video_data": {
                             "wm_video_url": video_url,
                             "wm_video_url_HQ": video_url,
-                            "nwm_video_url": video_url,  # Bilibili没有水印概念
+                            "nwm_video_url": video_url,
                             "nwm_video_url_HQ": video_url,
-                            "audio_url": audio_url,  # Bilibili音视频分离
-                            "cid": cid,  # 保存cid供后续使用
+                            "audio_url": audio_url,
+                            "cid": cid,
                         }
                     }
                 else:
