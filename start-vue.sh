@@ -31,9 +31,9 @@ lsof -ti:8000 | xargs kill -9 2>/dev/null || echo "没有进程占用8000端口"
 # 等待端口释放
 sleep 1
 
-# 构建前端
-echo "构建前端..."
-cd frontend && npm run build && cd ..
+# 安装前端依赖
+echo "安装前端依赖..."
+cd frontend && npm install && npm run build && cd ..
 
 # 设置PYTHONPATH
 export PYTHONPATH="$(pwd):${PYTHONPATH}"
