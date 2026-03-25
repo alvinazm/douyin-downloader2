@@ -199,6 +199,6 @@ const isDemo = computed(() => environment.value === 'Demo')
 
 # 日志
 
-server.log 是服务器启动日志，也记录了视频解析、下载结果，可以作为备份日志；
-logs/parser_video_2026-03-25.log 是视频解析日志
-logs/download_video_2026-03-25.log 是视频下载日志
+- server.log 是服务器启动日志，也记录了视频解析、下载结果，可以作为备份日志；
+- logs/parser_video_2026-03-25.log 是视频解析日志
+- logs/download_video_2026-03-25.log 是视频下载日志
