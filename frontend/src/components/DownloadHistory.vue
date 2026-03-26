@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, shallowRef, computed, onMounted, onUnmounted, triggerRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTaskManager } from '@/composables/useTaskManager'
 import { ApiClient } from '@/api'
@@ -23,6 +23,8 @@ const selectedTasks = ref<Set<string>>(new Set())
 const loadingError = ref<string | null>(null)
 const classifyingTasks = ref<Set<string>>(new Set())
 const classifyProgress = ref<Record<string, number>>({})
+const classificationStatus = ref<Record<string, 'none' | 'running' | 'completed' | 'failed'>>({})
+const classificationPollIntervals = ref<Record<string, NodeJS.Timeout>>({})
 
 onMounted(async () => {
   console.log('DownloadHistory mounted，开始加载任务...')
@@ -30,6 +32,14 @@ onMounted(async () => {
   try {
     loadingError.value = null
     await loadAllTasks()
+    tasks.value.forEach(task => {
+      if (task.classification_status === 'running') {
+        classificationStatus.value[task.task_id] = 'running'
+        classifyingTasks.value.add(task.task_id)
+        classifyProgress.value[task.task_id] = task.classification_progress || 0
+        pollClassificationStatus(task.task_id)
+      }
+    })
     console.log('任务已加载，开始轮询...')
     startPolling()
   } catch (err: any) {
@@ -41,6 +51,10 @@ onMounted(async () => {
 onUnmounted(() => {
   console.log('DownloadHistory unmounted，停止轮询')
   stopPolling()
+  Object.values(classificationPollIntervals.value).forEach(intervalId => {
+    clearInterval(intervalId)
+  })
+  classificationPollIntervals.value = {}
 })
 
 const getStatusText = (status: string) => {
@@ -150,44 +164,59 @@ const handleClassify = async (task: CommentExportTask) => {
   try {
     classifyingTasks.value.add(task.task_id)
     classifyProgress.value[task.task_id] = 0
-    task.classification_status = 'running'
+    classificationStatus.value[task.task_id] = 'running'
 
     await ApiClient.startClassify(task.task_id, 20, 5)
 
     pollClassificationStatus(task.task_id)
   } catch (err: any) {
     console.error('启动分类失败:', err)
+    if (classificationPollIntervals.value[task.task_id]) {
+      clearInterval(classificationPollIntervals.value[task.task_id])
+      delete classificationPollIntervals.value[task.task_id]
+    }
     classifyingTasks.value.delete(task.task_id)
     delete classifyProgress.value[task.task_id]
-    task.classification_status = 'none'
+    delete classificationStatus.value[task.task_id]
     alert(`启动分类失败: ${err.message || '未知错误'}`)
   }
 }
 
 const pollClassificationStatus = async (taskId: string) => {
-  const pollInterval = setInterval(async () => {
+  if (classificationPollIntervals.value[taskId]) {
+    return
+  }
+  const intervalId = setInterval(async () => {
     try {
       const status = await ApiClient.getClassifyStatus(taskId)
-      classifyProgress.value[taskId] = status.classification_progress
+      if (classifyProgress.value[taskId] !== status.classification_progress) {
+        classifyProgress.value[taskId] = status.classification_progress
+      }
+      classificationStatus.value[taskId] = status.classification_status
 
       if (status.classification_status === 'completed') {
-        clearInterval(pollInterval)
+        clearInterval(intervalId)
+        delete classificationPollIntervals.value[taskId]
         classifyingTasks.value.delete(taskId)
         delete classifyProgress.value[taskId]
+        delete classificationStatus.value[taskId]
         await loadAllTasks()
         alert(`分类完成！\n分类统计：\n${status.classification_summary ? Object.entries(status.classification_summary).map(([cat, count]) => `${cat}: ${count}`).join('\n') : '无'}`
         )
       } else if (status.classification_status === 'failed') {
-        clearInterval(pollInterval)
+        clearInterval(intervalId)
+        delete classificationPollIntervals.value[taskId]
         classifyingTasks.value.delete(taskId)
         delete classifyProgress.value[taskId]
+        delete classificationStatus.value[taskId]
         alert(`分类失败: ${status.error_message || '未知错误'}`
         )
       }
     } catch (err) {
       console.error('查询分类状态失败:', err)
     }
-  }, 1000)
+  }, 5000)
+  classificationPollIntervals.value[taskId] = intervalId
 }
 
 const handleDownloadClassified = async (task: CommentExportTask) => {
@@ -286,6 +315,9 @@ const handleDownloadClassified = async (task: CommentExportTask) => {
                     <span class="text-sm text-gray-700 font-medium">
                       {{ task.aweme_id }}
                     </span>
+                    <span v-if="task.status === 'completed'" class="text-sm text-blue-600">
+                      {{ task.total_fetched }} 条评论
+                    </span>
                   </div>
                   <span class="text-sm text-gray-500">
                     {{ formatTime(task.created_at) }}
@@ -330,7 +362,7 @@ const handleDownloadClassified = async (task: CommentExportTask) => {
                     下载原始评论
                   </button>
                   <button
-                    v-if="task.status === 'completed' && task.classification_status === 'none'"
+                    v-if="task.status === 'completed' && !classificationStatus[task.task_id]"
                     @click="handleClassify(task)"
                     class="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm font-medium hover:bg-purple-600 transition-colors flex items-center gap-2"
                   >
@@ -340,7 +372,7 @@ const handleDownloadClassified = async (task: CommentExportTask) => {
                     AI评论分类
                   </button>
                   <button
-                    v-if="task.classification_status === 'running'"
+                    v-if="classificationStatus[task.task_id] === 'running'"
                     disabled
                     class="px-4 py-2 bg-purple-300 text-white rounded-lg text-sm font-medium flex items-center gap-2 cursor-not-allowed"
                   >
@@ -350,7 +382,7 @@ const handleDownloadClassified = async (task: CommentExportTask) => {
                     </svg>
                     分类中... {{ classifyProgress[task.task_id] || task.classification_progress || 0 }}%
                   </button>
-                  <div v-if="task.classification_status === 'running'" class="w-full mt-2">
+                  <div v-if="classificationStatus[task.task_id] === 'running'" class="w-full mt-2">
                     <div class="w-full bg-purple-200 rounded-full h-2">
                       <div
                         class="bg-purple-500 h-2 rounded-full transition-all duration-300"
@@ -359,7 +391,7 @@ const handleDownloadClassified = async (task: CommentExportTask) => {
                     </div>
                   </div>
                   <button
-                    v-if="task.classification_status === 'completed'"
+                    v-if="classificationStatus[task.task_id] === 'completed'"
                     @click="handleDownloadClassified(task)"
                     class="px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors flex items-center gap-2"
                   >

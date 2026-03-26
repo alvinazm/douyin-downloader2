@@ -45,7 +45,7 @@ export function useTaskManager() {
   /**
    * 开始轮询任务状态
    */
-  const startPolling = (interval: number = 2000) => {
+  const startPolling = (interval: number = 5000) => {
     if (pollInterval.value) {
       console.log('轮询已在运行中')
       return

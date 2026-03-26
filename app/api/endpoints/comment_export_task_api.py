@@ -5,6 +5,7 @@ import json
 import time
 import yaml
 import re
+import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from fastapi import APIRouter, Query, BackgroundTasks, HTTPException
@@ -98,9 +99,11 @@ async def create_export_task(
     if max_comments > MAX_COMMENTS:
         max_comments = MAX_COMMENTS
 
-    # 生成文件名
-    if not filename:
-        filename = f"{platform}_comments_{aweme_id}"
+    # 生成文件名（始终使用时间戳确保唯一）
+    from datetime import datetime
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{platform}_comments_{aweme_id}_{timestamp}"
 
     # 创建任务
     task = task_manager.create_task(platform, aweme_id, max_comments, filename)
@@ -264,7 +267,6 @@ async def start_classify(
     task_id: str,
     batch_size: int = Query(default=20, description="每批评论数量"),
     workers: int = Query(default=5, description="并发线程数"),
-    background_tasks: BackgroundTasks = None,
 ):
     """
     启动AI评论分类（异步执行）
@@ -283,7 +285,9 @@ async def start_classify(
         raise HTTPException(status_code=400, detail="分类正在进行中")
 
     task_manager.update_classification_status(task_id, "running", 0)
-    background_tasks.add_task(execute_classify_task, task_id, batch_size, workers)
+    asyncio.get_event_loop().run_in_executor(
+        None, execute_classify_task_sync, task_id, batch_size, workers
+    )
 
     return {
         "code": 200,
@@ -292,8 +296,8 @@ async def start_classify(
     }
 
 
-async def execute_classify_task(task_id: str, batch_size: int, workers: int):
-    """后台执行分类任务"""
+def execute_classify_task_sync(task_id: str, batch_size: int, workers: int):
+    """同步执行分类任务（在后台线程中运行）"""
     from app.api.endpoints.comment_export_tasks import task_manager
 
     api_key, base_url = load_config()
