@@ -152,6 +152,10 @@ export interface CommentExportTask {
   created_at: string
   updated_at: string
   completed_at: string | null
+  classification_status: 'none' | 'running' | 'completed' | 'failed'
+  classification_progress: number
+  classification_summary: Record<string, number> | null
+  classified_file_path: string | null
 }
 
 /**

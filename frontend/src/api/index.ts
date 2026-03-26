@@ -400,6 +400,59 @@ export class ApiClient {
 
     return response.data.data
   }
+
+  /**
+   * 启动AI评论分类（异步）
+   */
+  static async startClassify(task_id: string, batch_size: number = 20, workers: number = 5): Promise<{
+    task_id: string
+    status: string
+    message: string
+  }> {
+    const response: AxiosResponse<ResponseModel<{
+      task_id: string
+      status: string
+      message: string
+    }>> = await apiClient.post(`/tasks/comments/classify/${task_id}`, null, {
+      params: { batch_size, workers }
+    })
+
+    return response.data.data
+  }
+
+  /**
+   * 获取评论分类状态
+   */
+  static async getClassifyStatus(task_id: string): Promise<{
+    task_id: string
+    classification_status: 'none' | 'running' | 'completed' | 'failed'
+    classification_progress: number
+    classification_summary: Record<string, number> | null
+    classified_file_path: string | null
+    error_message: string | null
+  }> {
+    const response: AxiosResponse<ResponseModel<{
+      task_id: string
+      classification_status: 'none' | 'running' | 'completed' | 'failed'
+      classification_progress: number
+      classification_summary: Record<string, number> | null
+      classified_file_path: string | null
+      error_message: string | null
+    }>> = await apiClient.get(`/tasks/comments/classification_status/${task_id}`)
+
+    return response.data.data
+  }
+
+  /**
+   * 下载已分类的评论文件
+   */
+  static async downloadClassifiedFile(task_id: string): Promise<Blob> {
+    const response: AxiosResponse<Blob> = await apiClient.get(`/tasks/comments/download_classified/${task_id}`, {
+      responseType: 'blob'
+    })
+
+    return response.data
+  }
 }
 
 export default apiClient

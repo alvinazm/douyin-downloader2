@@ -104,6 +104,8 @@ douyin-downloader/
 
 ## 示例输出
 
+导出文件保存在：app/download/comments/douyin_comments_7618387048823700089.csv
+
 CSV文件格式示例：
 
 | 评论人 | 评论内容 | 点赞量 | 评论时间 |

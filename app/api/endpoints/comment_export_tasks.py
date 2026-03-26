@@ -1,3 +1,4 @@
+# 评论导出任务管理器
 import asyncio
 import os
 import csv
@@ -31,6 +32,12 @@ class CommentExportTask:
         self.created_at = datetime.now()
         self.updated_at = datetime.now()
         self.completed_at: Optional[datetime] = None
+        self.classification_status: Optional[str] = (
+            None  # none, running, completed, failed
+        )
+        self.classification_progress: int = 0
+        self.classification_summary: Optional[Dict[str, int]] = None
+        self.classified_file_path: Optional[str] = None
 
 
 class TaskManager:
@@ -51,9 +58,11 @@ class TaskManager:
 
         # 确保下载目录存在
         download_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+            ),
             "download",
-            "comments",
+            "comment",
         )
         os.makedirs(download_path, exist_ok=True)
 
@@ -106,6 +115,29 @@ class TaskManager:
                 task.error_message = error_message
             if status == "completed":
                 task.completed_at = datetime.now()
+
+    def update_classification_status(
+        self,
+        task_id: str,
+        classification_status: str,
+        classification_progress: int | None = None,
+        classification_summary: Dict[str, int] | None = None,
+        classified_file_path: str | None = None,
+        error_message: str | None = None,
+    ):
+        """更新分类状态"""
+        task = self.tasks.get(task_id)
+        if task:
+            task.classification_status = classification_status
+            task.updated_at = datetime.now()
+            if classification_progress is not None:
+                task.classification_progress = classification_progress
+            if classification_summary is not None:
+                task.classification_summary = classification_summary
+            if classified_file_path is not None:
+                task.classified_file_path = classified_file_path
+            if error_message is not None:
+                task.error_message = error_message
 
     async def execute_task(self, task_id: str):
         """执行任务"""

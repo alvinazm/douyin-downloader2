@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTaskManager } from '@/composables/useTaskManager'
+import { ApiClient } from '@/api'
 import type { CommentExportTask } from '@/types/api'
 
 const router = useRouter()
@@ -20,6 +21,8 @@ const {
 
 const selectedTasks = ref<Set<string>>(new Set())
 const loadingError = ref<string | null>(null)
+const classifyingTasks = ref<Set<string>>(new Set())
+const classifyProgress = ref<Record<string, number>>({})
 
 onMounted(async () => {
   console.log('DownloadHistory mounted，开始加载任务...')
@@ -137,6 +140,72 @@ const handleBatchDelete = async () => {
 
   selectedTasks.value.clear()
   await loadAllTasks()
+}
+
+const handleClassify = async (task: CommentExportTask) => {
+  if (classifyingTasks.value.has(task.task_id)) {
+    return
+  }
+
+  try {
+    classifyingTasks.value.add(task.task_id)
+    classifyProgress.value[task.task_id] = 0
+    task.classification_status = 'running'
+
+    await ApiClient.startClassify(task.task_id, 20, 5)
+
+    pollClassificationStatus(task.task_id)
+  } catch (err: any) {
+    console.error('启动分类失败:', err)
+    classifyingTasks.value.delete(task.task_id)
+    delete classifyProgress.value[task.task_id]
+    task.classification_status = 'none'
+    alert(`启动分类失败: ${err.message || '未知错误'}`)
+  }
+}
+
+const pollClassificationStatus = async (taskId: string) => {
+  const pollInterval = setInterval(async () => {
+    try {
+      const status = await ApiClient.getClassifyStatus(taskId)
+      classifyProgress.value[taskId] = status.classification_progress
+
+      if (status.classification_status === 'completed') {
+        clearInterval(pollInterval)
+        classifyingTasks.value.delete(taskId)
+        delete classifyProgress.value[taskId]
+        await loadAllTasks()
+        alert(`分类完成！\n分类统计：\n${status.classification_summary ? Object.entries(status.classification_summary).map(([cat, count]) => `${cat}: ${count}`).join('\n') : '无'}`
+        )
+      } else if (status.classification_status === 'failed') {
+        clearInterval(pollInterval)
+        classifyingTasks.value.delete(taskId)
+        delete classifyProgress.value[taskId]
+        alert(`分类失败: ${status.error_message || '未知错误'}`
+        )
+      }
+    } catch (err) {
+      console.error('查询分类状态失败:', err)
+    }
+  }, 1000)
+}
+
+const handleDownloadClassified = async (task: CommentExportTask) => {
+  try {
+    const filename = `${task.platform}_comments_${task.aweme_id}_classified.csv`
+    const blob = await ApiClient.downloadClassifiedFile(task.task_id)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  } catch (err: any) {
+    console.error('下载分类文件失败:', err)
+    alert(`下载失败: ${err.message || '未知错误'}`)
+  }
 }
 </script>
 
@@ -258,7 +327,46 @@ const handleBatchDelete = async () => {
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                     </svg>
-                    下载CSV
+                    下载原始评论
+                  </button>
+                  <button
+                    v-if="task.status === 'completed' && task.classification_status === 'none'"
+                    @click="handleClassify(task)"
+                    class="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm font-medium hover:bg-purple-600 transition-colors flex items-center gap-2"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                    </svg>
+                    AI评论分类
+                  </button>
+                  <button
+                    v-if="task.classification_status === 'running'"
+                    disabled
+                    class="px-4 py-2 bg-purple-300 text-white rounded-lg text-sm font-medium flex items-center gap-2 cursor-not-allowed"
+                  >
+                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    分类中... {{ classifyProgress[task.task_id] || task.classification_progress || 0 }}%
+                  </button>
+                  <div v-if="task.classification_status === 'running'" class="w-full mt-2">
+                    <div class="w-full bg-purple-200 rounded-full h-2">
+                      <div
+                        class="bg-purple-500 h-2 rounded-full transition-all duration-300"
+                        :style="{ width: `${classifyProgress[task.task_id] || task.classification_progress || 0}%` }"
+                      ></div>
+                    </div>
+                  </div>
+                  <button
+                    v-if="task.classification_status === 'completed'"
+                    @click="handleDownloadClassified(task)"
+                    class="px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors flex items-center gap-2"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    下载已分类评论
                   </button>
                   <button
                     @click="handleDelete(task.task_id)"
