@@ -183,6 +183,13 @@ const handleBatchDelete = async () => {
 }
 
 const handleClassify = async (task: CommentExportTask) => {
+  // 使用后端状态判断，避免本地状态不一致
+  if (task.classification_status === 'running') {
+    errorMessage.value = '分类正在进行中'
+    showErrorModal.value = true
+    return
+  }
+
   if (classifyingTasks.value.has(task.task_id)) {
     return
   }
