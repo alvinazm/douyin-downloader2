@@ -126,13 +126,20 @@ const handleDownload = async (task: CommentExportTask) => {
   }
 }
 
-const handleDelete = async (taskId: string) => {
+const handleDelete = async (task: CommentExportTask) => {
+  // 分类进行中时直接提示，不弹确认框
+  if (classificationStatus.value[task.task_id] === 'running') {
+    errorMessage.value = '分类正在进行中，无法删除任务'
+    showErrorModal.value = true
+    return
+  }
+
   confirmTitle.value = '确认删除'
   confirmMessage.value = '确定要删除这个任务吗？'
   confirmType.value = 'warning'
   confirmCallback.value = async () => {
     try {
-      await deleteTask(taskId, true)
+      await deleteTask(task.task_id, true)
     } catch (err: any) {
       console.error('删除失败:', err)
       errorMessage.value = err.message || '删除失败'
@@ -428,7 +435,7 @@ const handleDownloadClassified = async (task: CommentExportTask) => {
                     下载已分类评论
                   </button>
                   <button
-                    @click="handleDelete(task.task_id)"
+                    @click="handleDelete(task)"
                     class="px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors flex items-center gap-2"
                   >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
