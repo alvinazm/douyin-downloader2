@@ -396,7 +396,7 @@ const handleDownloadClassified = async (task: CommentExportTask) => {
                     下载原始评论
                   </button>
                   <button
-                    v-if="task.status === 'completed' && !classificationStatus[task.task_id]"
+                    v-if="task.status === 'completed' && task.classification_status !== 'completed' && task.classification_status !== 'running'"
                     @click="handleClassify(task)"
                     class="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm font-medium hover:bg-purple-600 transition-colors flex items-center gap-2"
                   >
@@ -406,7 +406,7 @@ const handleDownloadClassified = async (task: CommentExportTask) => {
                     AI评论分类
                   </button>
                   <button
-                    v-if="classificationStatus[task.task_id] === 'running'"
+                    v-if="task.classification_status === 'running'"
                     disabled
                     class="px-4 py-2 bg-purple-300 text-white rounded-lg text-sm font-medium flex items-center gap-2 cursor-not-allowed"
                   >
@@ -416,7 +416,7 @@ const handleDownloadClassified = async (task: CommentExportTask) => {
                     </svg>
                     分类中... {{ classifyProgress[task.task_id] || task.classification_progress || 0 }}%
                   </button>
-                  <div v-if="classificationStatus[task.task_id] === 'running'" class="w-full mt-2">
+                  <div v-if="task.classification_status === 'running'" class="w-full mt-2">
                     <div class="w-full bg-purple-200 rounded-full h-2">
                       <div
                         class="bg-purple-500 h-2 rounded-full transition-all duration-300"
@@ -425,7 +425,7 @@ const handleDownloadClassified = async (task: CommentExportTask) => {
                     </div>
                   </div>
                   <button
-                    v-if="classificationStatus[task.task_id] === 'completed'"
+                    v-if="task.classification_status === 'completed'"
                     @click="handleDownloadClassified(task)"
                     class="px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors flex items-center gap-2"
                   >
