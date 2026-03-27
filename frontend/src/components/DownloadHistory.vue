@@ -183,6 +183,7 @@ const handleBatchDelete = async () => {
 }
 
 const handleClassify = async (task: CommentExportTask) => {
+  console.log('handleClassify called, task:', task.task_id, 'classification_status:', task.classification_status)
   // 使用后端状态判断，避免本地状态不一致
   if (task.classification_status === 'running') {
     errorMessage.value = '分类正在进行中'
@@ -199,11 +200,19 @@ const handleClassify = async (task: CommentExportTask) => {
     classifyProgress.value[task.task_id] = 0
     classificationStatus.value[task.task_id] = 'running'
 
+    // 更新任务对象的classification_status，触发UI更新
+    const taskIndex = tasks.value.findIndex(t => t.task_id === task.task_id)
+    if (taskIndex !== -1) {
+      tasks.value[taskIndex].classification_status = 'running'
+      tasks.value[taskIndex].classification_progress = 0
+    }
+
     await ApiClient.startClassify(task.task_id, 20, 5)
 
     pollClassificationStatus(task.task_id)
   } catch (err: any) {
     console.error('启动分类失败:', err)
+    const idx = tasks.value.findIndex(t => t.task_id === task.task_id)
     if (classificationPollIntervals.value[task.task_id]) {
       clearInterval(classificationPollIntervals.value[task.task_id])
       delete classificationPollIntervals.value[task.task_id]
@@ -211,6 +220,11 @@ const handleClassify = async (task: CommentExportTask) => {
     classifyingTasks.value.delete(task.task_id)
     delete classifyProgress.value[task.task_id]
     delete classificationStatus.value[task.task_id]
+    // 恢复任务对象的classification_status
+    if (idx !== -1) {
+      tasks.value[idx].classification_status = 'none'
+      tasks.value[idx].classification_progress = 0
+    }
     errorMessage.value = err.message || '启动分类失败'
     showErrorModal.value = true
   }
