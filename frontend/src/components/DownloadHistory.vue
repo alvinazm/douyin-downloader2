@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useTaskManager } from '@/composables/useTaskManager'
 import { ApiClient } from '@/api'
 import type { CommentExportTask } from '@/types/api'
+import ConfirmModal from './ConfirmModal.vue'
 
 const router = useRouter()
 const taskManager = useTaskManager()
@@ -25,6 +26,16 @@ const classifyingTasks = ref<Set<string>>(new Set())
 const classifyProgress = ref<Record<string, number>>({})
 const classificationStatus = ref<Record<string, 'none' | 'running' | 'completed' | 'failed'>>({})
 const classificationPollIntervals = ref<Record<string, NodeJS.Timeout>>({})
+
+// 弹框状态
+const showErrorModal = ref(false)
+const errorMessage = ref('')
+const showConfirmModal = ref(false)
+const confirmTitle = ref('')
+const confirmMessage = ref('')
+const confirmType = ref<'info' | 'success' | 'error' | 'warning'>('info')
+const confirmCallback = ref<(() => void) | null>(null)
+const pendingDeleteCount = ref(0)
 
 onMounted(async () => {
   console.log('DownloadHistory mounted，开始加载任务...')
@@ -110,21 +121,25 @@ const handleDownload = async (task: CommentExportTask) => {
     await downloadTaskFile(task.task_id, filename)
   } catch (err: any) {
     console.error('下载失败:', err)
-    alert(`下载失败: ${err.message}`)
+    errorMessage.value = err.message || '下载失败'
+    showErrorModal.value = true
   }
 }
 
 const handleDelete = async (taskId: string) => {
-  if (!confirm('确定要删除这个任务吗？')) {
-    return
+  confirmTitle.value = '确认删除'
+  confirmMessage.value = '确定要删除这个任务吗？'
+  confirmType.value = 'warning'
+  confirmCallback.value = async () => {
+    try {
+      await deleteTask(taskId, true)
+    } catch (err: any) {
+      console.error('删除失败:', err)
+      errorMessage.value = err.message || '删除失败'
+      showErrorModal.value = true
+    }
   }
-
-  try {
-    await deleteTask(taskId, true)
-  } catch (err: any) {
-    console.error('删除失败:', err)
-    alert(`删除失败: ${err.message}`)
-  }
+  showConfirmModal.value = true
 }
 
 const toggleSelect = (taskId: string) => {
@@ -140,20 +155,24 @@ const handleBatchDelete = async () => {
     return
   }
 
-  if (!confirm(`确定要删除选中的 ${selectedTasks.value.size} 个任务吗？`)) {
-    return
-  }
-
-  for (const taskId of selectedTasks.value) {
-    try {
-      await deleteTask(taskId, true)
-    } catch (err) {
-      console.error('删除任务失败:', taskId, err)
+  pendingDeleteCount.value = selectedTasks.value.size
+  confirmTitle.value = '确认批量删除'
+  confirmMessage.value = `确定要删除选中的 ${selectedTasks.value.size} 个任务吗？`
+  confirmType.value = 'warning'
+  confirmCallback.value = async () => {
+    for (const taskId of selectedTasks.value) {
+      try {
+        await deleteTask(taskId, true)
+      } catch (err) {
+        console.error('删除任务失败:', taskId, err)
+      }
     }
-  }
 
-  selectedTasks.value.clear()
-  await loadAllTasks()
+    selectedTasks.value.clear()
+    pendingDeleteCount.value = 0
+    await loadAllTasks()
+  }
+  showConfirmModal.value = true
 }
 
 const handleClassify = async (task: CommentExportTask) => {
@@ -178,7 +197,8 @@ const handleClassify = async (task: CommentExportTask) => {
     classifyingTasks.value.delete(task.task_id)
     delete classifyProgress.value[task.task_id]
     delete classificationStatus.value[task.task_id]
-    alert(`启动分类失败: ${err.message || '未知错误'}`)
+    errorMessage.value = err.message || '启动分类失败'
+    showErrorModal.value = true
   }
 }
 
@@ -201,16 +221,22 @@ const pollClassificationStatus = async (taskId: string) => {
         delete classifyProgress.value[taskId]
         delete classificationStatus.value[taskId]
         await loadAllTasks()
-        alert(`分类完成！\n分类统计：\n${status.classification_summary ? Object.entries(status.classification_summary).map(([cat, count]) => `${cat}: ${count}`).join('\n') : '无'}`
-        )
+        const summaryText = status.classification_summary 
+          ? Object.entries(status.classification_summary).map(([cat, count]) => `${cat}: ${count}`).join('\n')
+          : '无'
+        confirmTitle.value = '分类完成'
+        confirmMessage.value = `分类完成！\n分类统计：\n${summaryText}`
+        confirmType.value = 'success'
+        confirmCallback.value = null
+        showConfirmModal.value = true
       } else if (status.classification_status === 'failed') {
         clearInterval(intervalId)
         delete classificationPollIntervals.value[taskId]
         classifyingTasks.value.delete(taskId)
         delete classifyProgress.value[taskId]
         delete classificationStatus.value[taskId]
-        alert(`分类失败: ${status.error_message || '未知错误'}`
-        )
+        errorMessage.value = status.error_message || '分类失败'
+        showErrorModal.value = true
       }
     } catch (err) {
       console.error('查询分类状态失败:', err)
@@ -233,7 +259,8 @@ const handleDownloadClassified = async (task: CommentExportTask) => {
     URL.revokeObjectURL(url)
   } catch (err: any) {
     console.error('下载分类文件失败:', err)
-    alert(`下载失败: ${err.message || '未知错误'}`)
+    errorMessage.value = err.message || '下载失败'
+    showErrorModal.value = true
   }
 }
 </script>
@@ -463,4 +490,25 @@ const handleDownloadClassified = async (task: CommentExportTask) => {
       </main>
     </div>
   </div>
+
+  <!-- 错误提示弹框 -->
+  <ConfirmModal
+    v-model:show="showErrorModal"
+    type="error"
+    :title="errorMessage ? '提示' : ''"
+    :message="errorMessage"
+    confirm-text="知道了"
+  />
+
+  <!-- 确认弹框 -->
+  <ConfirmModal
+    v-model:show="showConfirmModal"
+    :type="confirmType"
+    :title="confirmTitle"
+    :message="confirmMessage"
+    :show-cancel="!!confirmCallback"
+    confirm-text="确定"
+    cancel-text="取消"
+    @confirm="confirmCallback && confirmCallback()"
+  />
 </template>

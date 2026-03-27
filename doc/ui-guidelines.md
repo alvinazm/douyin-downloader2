@@ -300,8 +300,107 @@ disabled: disabled:opacity-50 disabled:cursor-not-allowed
 
 ### 5. 模态框组件
 
+#### 统一确认弹框组件（ConfirmModal.vue）
+
+**所有页面必须使用统一的 `ConfirmModal` 组件，禁止使用原生 `alert()`/`confirm()`**
+
 ```vue
-<Transition 
+<script setup lang="ts">
+import ConfirmModal from './ConfirmModal.vue'
+
+// 弹框状态
+const showErrorModal = ref(false)
+const errorMessage = ref('')
+const showConfirmModal = ref(false)
+const confirmTitle = ref('')
+const confirmMessage = ref('')
+const confirmType = ref<'info' | 'success' | 'error' | 'warning'>('info')
+const confirmCallback = ref<(() => void) | null>(null)
+
+// 错误提示
+const showError = (msg: string) => {
+  errorMessage.value = msg
+  showErrorModal.value = true
+}
+
+// 确认对话框
+const showConfirm = (title: string, message: string, type: 'info' | 'success' | 'error' | 'warning', callback?: () => void) => {
+  confirmTitle.value = title
+  confirmMessage.value = message
+  confirmType.value = type
+  confirmCallback.value = callback || null
+  showConfirmModal.value = true
+}
+</script>
+
+<template>
+  <!-- 错误提示弹框 -->
+  <ConfirmModal
+    v-model:show="showErrorModal"
+    type="error"
+    :title="errorMessage ? '提示' : ''"
+    :message="errorMessage"
+    confirm-text="知道了"
+  />
+
+  <!-- 确认弹框 -->
+  <ConfirmModal
+    v-model:show="showConfirmModal"
+    :type="confirmType"
+    :title="confirmTitle"
+    :message="confirmMessage"
+    :show-cancel="!!confirmCallback"
+    confirm-text="确定"
+    cancel-text="取消"
+    @confirm="confirmCallback && confirmCallback()"
+  />
+</template>
+```
+
+**ConfirmModal 组件 Props：**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `show` | `boolean` | required | 控制显示/隐藏 |
+| `type` | `'info' \| 'success' \| 'error' \| 'warning'` | `'info'` | 弹框类型 |
+| `title` | `string` | `'提示'` | 标题 |
+| `message` | `string` | `''` | 内容 |
+| `confirmText` | `string` | `'确定'` | 确认按钮文字 |
+| `cancelText` | `string` | `'取消'` | 取消按钮文字 |
+| `showCancel` | `boolean` | `false` | 是否显示取消按钮 |
+
+**弹框类型对应样式：**
+
+| 类型 | 图标 | 颜色 | 使用场景 |
+|------|------|------|---------|
+| `info` | ℹ️ 蓝色 | 蓝色按钮 | 普通提示 |
+| `success` | ✓ 绿色 | 绿色按钮 | 操作成功 |
+| `error` | ✗ 红色 | 红色按钮 | 操作失败/错误 |
+| `warning` | ⚠️ 黄色 | 蓝色按钮 | 警告/确认 |
+
+**使用示例：**
+
+```vue
+// 错误提示
+errorMessage.value = '这是一条错误信息'
+showErrorModal.value = true
+
+// 确认对话框
+confirmTitle.value = '确认删除'
+confirmMessage.value = '确定要删除这个任务吗？'
+confirmType.value = 'warning'
+confirmCallback.value = async () => {
+  await deleteTask(taskId)
+}
+showConfirmModal.value = true
+```
+
+#### 内联模态框（复杂内容）
+
+**仅当 ConfirmModal 不满足需求时使用：**
+
+```vue
+<Transition
   enter-active-class="transition-all duration-300 ease-out"
   enter-from-class="opacity-0 scale-95"
   enter-to-class="opacity-100 scale-100"
@@ -309,28 +408,32 @@ disabled: disabled:opacity-50 disabled:cursor-not-allowed
   leave-from-class="opacity-100 scale-100"
   leave-to-class="opacity-0 scale-95"
 >
-  <div v-if="show" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div v-if="show" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="close">
     <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
-    <div class="relative bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden">
-      
-      <!-- 模态框头部 -->
-      <div class="flex items-center justify-between p-5 border-b border-gray-100">
-        <h3 class="text-lg font-semibold text-gray-900">标题</h3>
-        <button 
-          @click="close"
-          class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
+    <div class="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all">
+      <button v-if="showCancel" @click="close" class="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+
+      <div class="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-red-100">
+        <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+      </div>
+
+      <h3 class="text-lg font-semibold text-gray-900 text-center mb-2">标题</h3>
+      <p class="text-gray-600 text-center mb-6 whitespace-pre-line">内容</p>
+
+      <div class="flex gap-3 justify-center">
+        <button v-if="showCancel" @click="close" class="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-all duration-200">
+          取消
+        </button>
+        <button class="flex-1 px-6 py-3 rounded-lg font-medium transition-all duration-200 bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700">
+          确定
         </button>
       </div>
-      
-      <!-- 模态框内容 -->
-      <div class="p-6 overflow-y-auto max-h-[60vh]">
-        <!-- 内容 -->
-      </div>
-      
     </div>
   </div>
 </Transition>
@@ -341,6 +444,7 @@ disabled: disabled:opacity-50 disabled:cursor-not-allowed
 - 边框圆角：`rounded-2xl`
 - 阴影：`shadow-2xl`
 - 遮罩：`bg-black/40 backdrop-blur-sm`
+- 动画：`scale-95 → scale-100` + `opacity-0 → opacity-100`
 
 ### 6. 状态提示组件
 
@@ -489,6 +593,7 @@ grid-cols-1 sm:grid-cols-2     /* 网格列数响应式 */
 - [ ] 所有输入框使用 `bg-white` 和 `border-gray-300`
 - [ ] 所有卡片使用 `bg-white` 和 `border-gray-200`
 - [ ] 页面背景使用 `bg-gray-100`
+- [ ] 所有提示和确认使用 `ConfirmModal` 组件，禁止使用原生 `alert()/confirm()`
 
 ### 代码审查检查清单
 - [ ] 是否存在为不同功能使用不同颜色的按钮？
@@ -506,6 +611,13 @@ grid-cols-1 sm:grid-cols-2     /* 网格列数响应式 */
 - **构建工具**：Vite 5.0+
 - **Vue**：Vue 3.4+
 - **图标**：Heroicons
+
+### 核心组件清单
+- `ConfirmModal.vue` - 统一确认弹框组件
+- `VideoPreview.vue` - 视频解析组件
+- `CommentExport.vue` - 评论导出组件
+- `DownloadHistory.vue` - 下载历史组件
+- `MainView.vue` - 首页组件
 
 ### 工具参考
 - Tailwind CSS 文档：https://tailwindcss.com/docs
