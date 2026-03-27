@@ -1,16 +1,8 @@
-1、分析以下几个页面，针对已有的功能输出PRD文档
+分析以下几个页面，写出UI及交互方案
+http://localhost:8000/
 http://localhost:8000/parse
 http://localhost:8000/export/douyin
-http://localhost:8000/download-history
-
-2、分析以下几个页面，写出详细的技术方案，包含前端及后端
-http://localhost:8000/parse
-http://localhost:8000/export/douyin
-http://localhost:8000/download-history
-
-3、分析以下几个页面，写出UI及交互方案
-http://localhost:8000/parse
-http://localhost:8000/export/douyin
+http://localhost:8000/export/tiktok
 http://localhost:8000/download-history
 
 

@@ -1,8 +1,5 @@
-import { IOSShortcut } from '@/types/api'
+import type { IOSShortcut } from '@/types/api'
 
-/**
- * Mock iOS快捷指令数据
- */
 export const mockIOSShortcut: IOSShortcut = {
   version: '7.0',
   update: '2024/07/05',

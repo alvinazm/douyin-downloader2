@@ -11,6 +11,7 @@ from app.api.endpoints import (
     tiktok_comment_export,
     comment_export_task_api,
     config_api,
+    logger,
 )
 
 router = APIRouter()
@@ -49,3 +50,6 @@ router.include_router(
     prefix="/tasks/comments",
     tags=["Comment-Export-Tasks"],
 )
+
+# Logger router
+router.include_router(logger.router, prefix="/log", tags=["Logger"])

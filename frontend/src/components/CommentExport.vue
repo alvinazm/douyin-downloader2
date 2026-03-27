@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCommentExporter } from '@/composables/useCommentExporter'
 import { useConfigStore } from '@/stores/config'
+import { ApiClient } from '@/api'
 
 interface Props {
   platform: 'douyin' | 'tiktok'
@@ -62,6 +63,8 @@ const handleFetch = async () => {
     resetExporter()
     hasFetched.value = false
 
+    const inputUrl = exportType.value === 'id' ? awemeId.value.trim() : url.value.trim()
+
     if (props.platform === 'douyin') {
       await fetchDouyinComments({
         aweme_id: exportType.value === 'id' ? awemeId.value.trim() : undefined,
@@ -77,8 +80,24 @@ const handleFetch = async () => {
     }
 
     hasFetched.value = true
-  } catch (err) {
+
+    ApiClient.logParserActivity({
+      platform: props.platform,
+      url: inputUrl,
+      comment_count: totalComments.value,
+      result: 'success',
+      detail: 'fetch_preview'
+    })
+  } catch (err: any) {
     console.error('获取评论失败:', err)
+    const inputUrl = exportType.value === 'id' ? awemeId.value.trim() : url.value.trim()
+    ApiClient.logParserActivity({
+      platform: props.platform,
+      url: inputUrl,
+      comment_count: 0,
+      result: 'failed',
+      detail: err.message || 'fetch_failed'
+    })
     errorMessage.value = err.message || '未知错误'
     showErrorModal.value = true
   }
@@ -86,21 +105,44 @@ const handleFetch = async () => {
 
 const handleExport = async () => {
   try {
+    const inputUrl = exportType.value === 'id' ? awemeId.value.trim() : url.value.trim()
+    let awemeIdValue = ''
+
     if (props.platform === 'douyin') {
-      await exportDouyinComments({
+      const result = await exportDouyinComments({
         aweme_id: exportType.value === 'id' ? awemeId.value.trim() : undefined,
         url: exportType.value === 'url' ? url.value.trim() : undefined,
         max_comments: maxComments.value
       })
+      awemeIdValue = result?.aweme_id || awemeId.value.trim()
     } else {
-      await exportTiktokComments({
+      const result = await exportTiktokComments({
         aweme_id: exportType.value === 'id' ? awemeId.value.trim() : undefined,
         url: exportType.value === 'url' ? url.value.trim() : undefined,
         max_comments: maxComments.value
       })
+      awemeIdValue = result?.aweme_id || awemeId.value.trim()
     }
-  } catch (err) {
+
+    ApiClient.logFetchCommentsActivity({
+      platform: props.platform,
+      aweme_id: awemeIdValue,
+      url: inputUrl,
+      max_comments: maxComments.value,
+      result: 'success',
+      detail: 'create_export_task'
+    })
+  } catch (err: any) {
     console.error('导出评论失败:', err)
+    const inputUrl = exportType.value === 'id' ? awemeId.value.trim() : url.value.trim()
+    ApiClient.logFetchCommentsActivity({
+      platform: props.platform,
+      aweme_id: awemeId.value.trim(),
+      url: inputUrl,
+      max_comments: maxComments.value,
+      result: 'failed',
+      detail: err.message || 'export_failed'
+    })
     errorMessage.value = err.message || '未知错误'
     showErrorModal.value = true
   }

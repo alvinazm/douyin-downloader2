@@ -453,6 +453,37 @@ export class ApiClient {
 
     return response.data
   }
+
+  /**
+   * 记录评论解析活动日志
+   */
+  static async logParserActivity(params: {
+    platform: 'douyin' | 'tiktok'
+    url: string
+    comment_count: number
+    result: 'success' | 'failed'
+    detail?: string
+  }): Promise<{ code: number; message: string }> {
+    const response: AxiosResponse<ResponseModel<{ code: number; message: string }>> = 
+      await apiClient.post('/log/parser', params)
+    return response.data
+  }
+
+  /**
+   * 记录导出CSV活动日志
+   */
+  static async logFetchCommentsActivity(params: {
+    platform: 'douyin' | 'tiktok'
+    aweme_id: string
+    url: string
+    max_comments: number
+    result: 'success' | 'failed'
+    detail?: string
+  }): Promise<{ code: number; message: string }> {
+    const response: AxiosResponse<ResponseModel<{ code: number; message: string }>> = 
+      await apiClient.post('/log/fetch_comments', params)
+    return response.data
+  }
 }
 
 export default apiClient

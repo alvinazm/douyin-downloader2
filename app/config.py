@@ -18,3 +18,6 @@ MAX_COMMENTS = config["API"]["Max_Comments"]
 if "Max_Take_URLs" not in config["Web"]:
     raise ValueError("config.yaml 中缺少必需的 'Web.Max_Take_URLs' 配置项")
 MAX_TAKE_URLS = config["Web"]["Max_Take_URLs"]
+
+# 日志配置
+LOG_PATH = config["API"].get("Log_Path", "./logs")

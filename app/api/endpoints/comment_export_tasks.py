@@ -7,6 +7,7 @@ from typing import Optional, Dict, Any
 from fastapi import BackgroundTasks
 from crawlers.douyin.web.web_crawler import DouyinWebCrawler
 from crawlers.tiktok.web.web_crawler import TikTokWebCrawler
+from app.api.endpoints.logger import log_comment_export
 
 
 class CommentExportTask:
@@ -158,8 +159,16 @@ class TaskManager:
             self.update_task_status(
                 task_id, "completed", progress=100, total_fetched=task.total_fetched
             )
+            log_comment_export(
+                task.platform,
+                task.aweme_id,
+                "completed",
+                file_path=task.file_path,
+                total_count=task.total_fetched,
+            )
         except Exception as e:
             self.update_task_status(task_id, "failed", error_message=str(e))
+            log_comment_export(task.platform, task.aweme_id, "failed", error=str(e))
 
     async def _execute_douyin_task(self, task: CommentExportTask):
         """执行抖音导出任务"""
@@ -202,6 +211,15 @@ class TaskManager:
                         self.update_task_status(
                             task.task_id, "running", progress=progress
                         )
+
+                # 记录获取进度
+                if total_count > 0:
+                    log_comment_export(
+                        task.platform,
+                        task.aweme_id,
+                        "fetching",
+                        fetched_count=total_count,
+                    )
 
                 # 如果达到最大评论数，停止获取
                 if total_count >= task.max_comments:
@@ -260,6 +278,15 @@ class TaskManager:
                             self.update_task_status(
                                 task.task_id, "running", progress=progress
                             )
+
+                    # 记录获取进度
+                    if total_count > 0:
+                        log_comment_export(
+                            task.platform,
+                            task.aweme_id,
+                            "fetching",
+                            fetched_count=total_count,
+                        )
 
                     # 如果达到最大评论数，停止获取
                     if total_count >= task.max_comments:

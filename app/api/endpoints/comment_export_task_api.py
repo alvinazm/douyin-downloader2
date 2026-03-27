@@ -13,6 +13,7 @@ from starlette.responses import FileResponse, JSONResponse
 from openai import OpenAI
 from app.api.models.APIResponseModel import ErrorResponseModel
 from app.api.endpoints.comment_export_tasks import task_manager
+from app.api.endpoints.logger import log_comment_export, log_comment_classify
 from app.config import MAX_COMMENTS
 
 router = APIRouter()
@@ -107,6 +108,9 @@ async def create_export_task(
 
     # 创建任务
     task = task_manager.create_task(platform, aweme_id, max_comments, filename)
+
+    # 记录日志 - 用户提交导出CSV
+    log_comment_export(platform, aweme_id, "submit", max_comments=max_comments)
 
     # 在后台执行任务
     background_tasks.add_task(task_manager.execute_task, task.task_id)
@@ -284,6 +288,24 @@ async def start_classify(
     if task.classification_status == "running":
         raise HTTPException(status_code=400, detail="分类正在进行中")
 
+    # 统计评论总数用于日志
+    total_comments = 0
+    with open(task.file_path, "r", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row.get("评论内容"):
+                total_comments += 1
+
+    # 记录日志 - 用户提交AI分类
+    log_comment_classify(
+        task.platform,
+        task.aweme_id,
+        "submit",
+        total_comments=total_comments,
+        batch_size=batch_size,
+        workers=workers,
+    )
+
     task_manager.update_classification_status(task_id, "running", 0)
     asyncio.get_event_loop().run_in_executor(
         None, execute_classify_task_sync, task_id, batch_size, workers
@@ -305,6 +327,15 @@ def execute_classify_task_sync(task_id: str, batch_size: int, workers: int):
         task_manager.update_classification_status(
             task_id, "failed", error_message="MINIMAX_API_KEY not configured"
         )
+        # 记录分类失败 - API未配置
+        task = task_manager.get_task(task_id)
+        if task:
+            log_comment_classify(
+                task.platform,
+                task.aweme_id,
+                "failed",
+                error="MINIMAX_API_KEY not configured",
+            )
         return
 
     task = task_manager.get_task(task_id)
@@ -384,7 +415,15 @@ def execute_classify_task_sync(task_id: str, batch_size: int, workers: int):
                 completed += 1
                 progress = int((completed / total_batches) * 100)
                 task_manager.update_classification_status(task_id, "running", progress)
-                print(f"  Classified batch {completed}/{total_batches}")
+                # 记录分类进度
+                log_comment_classify(
+                    task.platform,
+                    task.aweme_id,
+                    "progress",
+                    progress=progress,
+                    completed_batches=completed,
+                    total_batches=total_batches,
+                )
                 time.sleep(0.5)
 
         class_map = {c["id"]: c for c in results}
@@ -436,13 +475,21 @@ def execute_classify_task_sync(task_id: str, batch_size: int, workers: int):
         task_manager.update_classification_status(
             task_id, "completed", 100, counts, output_filename
         )
-        print(f"Classification completed for task {task_id}")
+        # 记录分类完成
+        log_comment_classify(
+            task.platform,
+            task.aweme_id,
+            "completed",
+            file_path=output_filename,
+            summary=counts,
+        )
 
     except Exception as e:
         task_manager.update_classification_status(
             task_id, "failed", error_message=str(e)
         )
-        print(f"Classification failed for task {task_id}: {e}")
+        # 记录分类失败
+        log_comment_classify(task.platform, task.aweme_id, "failed", error=str(e))
 
 
 @router.get("/download_classified/{task_id}")
