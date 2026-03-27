@@ -31,7 +31,7 @@ SYSTEM_PROMPT = """You are a comment classifier. Classify each comment into one 
 
 For each comment, also provide:
 - confidence: 0-100, confidence level
-- action: recommended action (delete, reply, thank, ignore, flag_review)
+- action: recommended action (delete, reply, thank, ignore)
 - reason: brief reason in Chinese for the classification
 
 Return JSON array like: [{"id":"c0","category":"question","confidence":85,"action":"reply","reason":"..."}]"""
