@@ -86,6 +86,8 @@ class TaskManager:
         """删除任务"""
         task = self.tasks.get(task_id)
         if task:
+            if task.classification_status == "running":
+                raise ValueError("分类正在进行中，无法删除任务")
             # 删除文件
             if delete_file and os.path.exists(task.file_path):
                 try:

@@ -257,7 +257,10 @@ async def delete_task(task_id: str, delete_file: bool = Query(default=False)):
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
 
-    task_manager.delete_task(task_id, delete_file)
+    try:
+        task_manager.delete_task(task_id, delete_file)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     return {
         "code": 200,
