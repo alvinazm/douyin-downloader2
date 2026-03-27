@@ -128,7 +128,7 @@ const handleDownload = async (task: CommentExportTask) => {
 
 const handleDelete = async (task: CommentExportTask) => {
   // 分类进行中时直接提示，不弹确认框
-  if (classificationStatus.value[task.task_id] === 'running') {
+  if (task.classification_status === 'running') {
     errorMessage.value = '分类正在进行中，无法删除任务'
     showErrorModal.value = true
     return
