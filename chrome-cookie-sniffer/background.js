@@ -8,6 +8,12 @@ const SERVICES = {
     displayName: '抖音',
     domains: ['douyin.com'],
     cookieDomain: '.douyin.com'
+  },
+  xiaohongshu: {
+    name: 'xiaohongshu',
+    displayName: '小红书',
+    domains: ['xiaohongshu.com'],
+    cookieDomain: '.xiaohongshu.com'
   }
 };
 
@@ -155,7 +161,7 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
         }
       }
     },
-    { urls: ["https://*.douyin.com/*", "https://douyin.com/*"] },
+    { urls: ["https://*.douyin.com/*", "https://douyin.com/*", "https://*.xiaohongshu.com/*", "https://xiaohongshu.com/*"] },
     ["requestHeaders", "extraHeaders"]
   );
 

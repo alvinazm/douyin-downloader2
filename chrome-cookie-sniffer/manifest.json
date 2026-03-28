@@ -11,7 +11,9 @@
     ],
     "host_permissions": [
       "https://*.douyin.com/*",
-      "https://douyin.com/*"
+      "https://douyin.com/*",
+      "https://*.xiaohongshu.com/*",
+      "https://xiaohongshu.com/*"
     ],
     "background": {
       "service_worker": "background.js"

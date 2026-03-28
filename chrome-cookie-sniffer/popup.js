@@ -11,14 +11,21 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 服务配置
     const SERVICES = {
-        douyin: { name: 'douyin', displayName: '抖音', icon: '🎵' }
+        douyin: { name: 'douyin', displayName: '抖音', icon: '🎵' },
+        xiaohongshu: { name: 'xiaohongshu', displayName: '小红书', icon: '📕' }
     };
+    
+    // 默认Webhook地址
+    const DEFAULT_WEBHOOK_URL = 'http://localhost:8000/api/hybrid/update_cookie';
     
     // 加载Webhook配置
     function loadWebhookConfig() {
         chrome.storage.local.get(['webhookUrl'], function(result) {
             if (result.webhookUrl) {
                 webhookInput.value = result.webhookUrl;
+            } else {
+                webhookInput.value = DEFAULT_WEBHOOK_URL;
+                chrome.storage.local.set({ webhookUrl: DEFAULT_WEBHOOK_URL });
             }
             updateTestButtonState();
         });
@@ -166,9 +173,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const isRecent = Date.now() - data.timestamp < 5 * 60 * 1000; // 5分钟内
         const lastUpdate = new Date(data.lastUpdate).toLocaleString();
         
+        const displayService = SERVICES[data.service] || { displayName: data.service, icon: '❓', name: data.service };
+        const serviceName = displayService.displayName || data.service;
+        const serviceIcon = displayService.icon || '';
+        
         card.innerHTML = `
             <div class="card-header">
-                <div class="service-name">${service.icon} ${service.displayName}</div>
+                <div class="service-name">${serviceIcon} ${serviceName}</div>
                 <div class="service-status ${isRecent ? 'status-active' : 'status-inactive'}">
                     ${isRecent ? '活跃' : '休眠'}
                 </div>
@@ -176,10 +187,10 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="card-body">
                 <div class="last-update">上次更新: ${lastUpdate}</div>
                 <div class="actions">
-                    <button class="btn btn-primary btn-sm copy-btn" data-service="${service.name}">
+                    <button class="btn btn-primary btn-sm copy-btn" data-service="${data.service}">
                         📋 复制Cookie
                     </button>
-                    <button class="btn btn-danger btn-sm delete-btn" data-service="${service.name}">
+                    <button class="btn btn-danger btn-sm delete-btn" data-service="${data.service}">
                         🗑️ 删除
                     </button>
                 </div>

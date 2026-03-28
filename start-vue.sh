@@ -17,7 +17,7 @@ echo ""
 echo "服务将在以下地址可用:"
 echo "  - 主页: http://localhost:8000"
 echo "  - API文档: http://localhost:8000/docs"
-echo "  - PyWebIO: http://localhost:8000/pywebio"
+echo "  - WebHook回调地址: http://localhost:8000/api/hybrid/update_cookie"
 echo ""
 
 # 获取脚本所在目录
