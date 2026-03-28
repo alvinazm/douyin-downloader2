@@ -2,6 +2,9 @@
 
 一个用于自动嗅探和提取网站Cookie的Chrome扩展程序。支持抖音等主流平台，具备智能去重、时间控制和Webhook回调等功能。
 
+## webhook回调地址
+http://localhost:8000/api/hybrid/update_cookie
+
 ## 功能特性
 
 - 🎯 **智能Cookie抓取** - 自动拦截POST/GET请求中的Cookie

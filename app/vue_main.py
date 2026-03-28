@@ -38,6 +38,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from app.api.router import router as api_router
 
 # PyWebIO APP
@@ -135,6 +136,15 @@ app = FastAPI(
     openapi_tags=tags_metadata,
     docs_url=docs_url,
     redoc_url=redoc_url,
+)
+
+# CORS middleware for Chrome extension compatibility
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # API router
