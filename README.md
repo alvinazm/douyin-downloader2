@@ -1,6 +1,7 @@
 # 启动指南
 
 本项目现在支持两种Web前端方案：
+必须安装：chrome-cookie-sniffer 插件
 
 ## 方案一：PyWebIO方案（原始方案）
 

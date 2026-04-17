@@ -76,6 +76,15 @@ class BaseCrawler:
 
         # 爬虫请求头 / Crawler request header
         self.crawler_headers = crawler_headers or {}
+        # 过滤掉值为 None 的 header，防止 httpx 抛出 AttributeError
+        # Filter out None header values to prevent httpx AttributeError
+        if any(v is None for v in self.crawler_headers.values()):
+            logger.warning(
+                f"[BaseCrawler] 发现 None 值的 header 键: {[k for k, v in self.crawler_headers.items() if v is None]}"
+            )
+            self.crawler_headers = {
+                k: v for k, v in self.crawler_headers.items() if v is not None
+            }
 
         # 异步的任务数 / Number of asynchronous tasks
         self._max_tasks = max_tasks
