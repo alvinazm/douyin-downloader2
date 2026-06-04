@@ -38,6 +38,7 @@ import httpx
 from crawlers.douyin.web.web_crawler import DouyinWebCrawler  # 导入抖音Web爬虫
 from crawlers.tiktok.web.web_crawler import TikTokWebCrawler  # 导入TikTok Web爬虫
 from crawlers.tiktok.app.app_crawler import TikTokAPPCrawler  # 导入TikTok App爬虫
+from crawlers.tiktok.tiktok_crawler import TikTokCrawler  # 导入TikTok yt-dlp爬虫
 from crawlers.bilibili.web.web_crawler import BilibiliWebCrawler  # 导入Bilibili Web爬虫
 from crawlers.youtube.youtube_crawler import YouTubeCrawler  # 导入YouTube爬虫
 from crawlers.utils.logger import logger  # 导入日志模块
@@ -48,6 +49,7 @@ class HybridCrawler:
         self.DouyinWebCrawler = DouyinWebCrawler()
         self.TikTokWebCrawler = TikTokWebCrawler()
         self.TikTokAPPCrawler = TikTokAPPCrawler()
+        self.TikTokCrawler = TikTokCrawler()
         self.BilibiliWebCrawler = BilibiliWebCrawler()
         self.YouTubeCrawler = YouTubeCrawler()
 
@@ -96,23 +98,16 @@ class HybridCrawler:
             logger.info(
                 f"[HybridCrawler] 抖音视频数据获取成功, aweme_type={aweme_type}"
             )
-        # 解析TikTok视频/Parse TikTok video
+        # 解析TikTok视频/Parse TikTok video (使用 yt-dlp)
         elif "tiktok" in url:
             platform = "tiktok"
             logger.info(f"[HybridCrawler] 识别为TikTok视频")
-            logger.info(f"[HybridCrawler] 开始获取TikTok视频ID...")
-            aweme_id = await self.TikTokWebCrawler.get_aweme_id(url)
-            logger.info(f"[HybridCrawler] TikTok Aweme ID: {aweme_id}")
-
-            # 2024-09-14: Switch to TikTokAPPCrawler instead of TikTokWebCrawler
-            # data = await self.TikTokWebCrawler.fetch_one_video(aweme_id)
-            # data = data.get("itemInfo").get("itemStruct")
-            logger.info(f"[HybridCrawler] 开始获取TikTok视频数据 (使用APP API)...")
-            data = await self.TikTokAPPCrawler.fetch_one_video(aweme_id)
-            # $.imagePost exists if aweme_type is photo
-            aweme_type = data.get("aweme_type")
+            logger.info(f"[HybridCrawler] 开始使用 yt-dlp 解析TikTok视频...")
+            data = await self.TikTokCrawler.fetch_video_info(url)
+            aweme_id = data.get("video_id")
+            aweme_type = 0  # YouTube/TikTok only has video type
             logger.info(
-                f"[HybridCrawler] TikTok视频数据获取成功, aweme_type={aweme_type}"
+                f"[HybridCrawler] TikTok视频数据获取成功, aweme_id={aweme_id}"
             )
         # 解析Bilibili视频/Parse Bilibili video
         elif "bilibili" in url or "b23.tv" in url:
@@ -199,6 +194,23 @@ class HybridCrawler:
                 "cover_data": {},
                 "hashtags": None,
             }
+        elif platform == "tiktok":
+            result_data = {
+                "type": url_type,
+                "platform": platform,
+                "video_id": aweme_id,
+                "aweme_id": aweme_id,
+                "desc": data.get("title"),
+                "create_time": data.get("upload_date"),
+                "author": {"nickname": data.get("uploader"), "unique_id": None},
+                "music": None,
+                "statistics": {
+                    "play_count": data.get("view_count"),
+                    "digg_count": data.get("like_count"),
+                },
+                "cover_data": {},
+                "hashtags": None,
+            }
         else:
             result_data = {
                 "type": url_type,
@@ -273,66 +285,68 @@ class HybridCrawler:
                         "watermark_image_list": watermark_image_list,
                     }
                 }
-        # TikTok数据处理/TikTok data processing
+        # TikTok数据处理/TikTok data processing (yt-dlp)
         elif platform == "tiktok":
-            # 填充封面数据
             result_data["cover_data"] = {
-                "cover": data.get("video", {}).get("cover"),
-                "origin_cover": data.get("video", {}).get("origin_cover"),
-                "dynamic_cover": data.get("video", {}).get("dynamic_cover"),
+                "cover": data.get("thumbnail"),
+                "origin_cover": data.get("thumbnail"),
+                "dynamic_cover": data.get("thumbnail"),
             }
-            # TikTok视频数据处理/TikTok video data processing
             if url_type == "video":
-                download_addr = (
-                    data.get("video", {})
-                    .get("download_addr", {})
-                    .get("url_list", [None])[0]
-                )
+                full_info = data.get("full_info", {})
+                formats = full_info.get("formats", [])
+                video_url = None
+                audio_url = None
 
-                bit_rate_list = data.get("video", {}).get("bit_rate", [])
-                best_size = 0
-                best_video_url = None
-
-                if bit_rate_list:
-                    for bit_item in bit_rate_list:
-                        play_addr = bit_item.get("play_addr", {})
-                        if play_addr.get("url_list"):
-                            url_info = play_addr["url_list"][0]
-                            size = (
-                                url_info.get("size", 0)
-                                if isinstance(url_info, dict)
-                                else 0
-                            )
-                            if size > best_size:
-                                best_size = size
-                                best_video_url = play_addr.get("url_list", [None])[0]
-
-                nwm_video_url_HQ = best_video_url if best_video_url else download_addr
-                wm_video = download_addr
+                for f in formats:
+                    if f.get("url"):
+                        if f.get("vcodec") != "none" and f.get("acodec") != "none":
+                            video_url = f.get("url")
+                            break
+                        elif f.get("vcodec") != "none" and video_url is None:
+                            video_url = f.get("url")
+                        elif f.get("acodec") != "none" and audio_url is None:
+                            audio_url = f.get("url")
 
                 api_data = {
                     "video_data": {
-                        "wm_video_url": wm_video,
-                        "wm_video_url_HQ": wm_video,
-                        "nwm_video_url": nwm_video_url_HQ,
-                        "nwm_video_url_HQ": nwm_video_url_HQ,
+                        "wm_video_url": video_url,
+                        "wm_video_url_HQ": video_url,
+                        "nwm_video_url": video_url,
+                        "nwm_video_url_HQ": video_url,
+                        "audio_url": audio_url,
                     }
                 }
-            # TikTok图片数据处理/TikTok image data processing
-            elif url_type == "image":
-                # 无水印图片列表/No watermark image list
-                no_watermark_image_list = []
-                # 有水印图片列表/With watermark image list
-                watermark_image_list = []
-                for i in data["image_post_info"]["images"]:
-                    no_watermark_image_list.append(i["display_image"]["url_list"][0])
-                    watermark_image_list.append(
-                        i["owner_watermark_image"]["url_list"][0]
-                    )
+        # YouTube数据处理/YouTube data processing
+        elif platform == "youtube":
+            result_data["cover_data"] = {
+                "cover": data.get("thumbnail"),
+                "origin_cover": data.get("thumbnail"),
+                "dynamic_cover": data.get("thumbnail"),
+            }
+            if url_type == "video":
+                full_info = data.get("full_info", {})
+                formats = full_info.get("formats", [])
+                video_url = None
+                audio_url = None
+
+                for f in formats:
+                    if f.get("url"):
+                        if f.get("vcodec") != "none" and f.get("acodec") != "none":
+                            video_url = f.get("url")
+                            break
+                        elif f.get("vcodec") != "none" and video_url is None:
+                            video_url = f.get("url")
+                        elif f.get("acodec") != "none" and audio_url is None:
+                            audio_url = f.get("url")
+
                 api_data = {
-                    "image_data": {
-                        "no_watermark_image_list": no_watermark_image_list,
-                        "watermark_image_list": watermark_image_list,
+                    "video_data": {
+                        "wm_video_url": video_url,
+                        "wm_video_url_HQ": video_url,
+                        "nwm_video_url": video_url,
+                        "nwm_video_url_HQ": video_url,
+                        "audio_url": audio_url,
                     }
                 }
         # Bilibili数据处理/Bilibili data processing
