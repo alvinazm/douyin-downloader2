@@ -15,12 +15,14 @@ from app.api.models.APIResponseModel import ErrorResponseModel  # 导入响应�
 from crawlers.hybrid.hybrid_crawler import HybridCrawler  # 导入混合数据爬虫
 from crawlers.youtube.youtube_crawler import YouTubeCrawler as YouTubeCrawlerClass  # 导入YouTube爬虫
 from crawlers.tiktok.tiktok_crawler import TikTokCrawler as TikTokCrawlerClass  # 导入TikTok爬虫
+from crawlers.instagram.instagram_crawler import InstagramCrawler as InstagramCrawlerClass  # 导入Instagram爬虫
 from app.utils.logger import get_logger
 
 router = APIRouter()
 HybridCrawler = HybridCrawler()
 youtube_crawler = YouTubeCrawlerClass()
 tiktok_crawler = TikTokCrawlerClass()
+instagram_crawler = InstagramCrawlerClass()
 logger = get_logger("DownloadAPI")
 
 # 读取上级再上级目录的配置文件
@@ -516,6 +518,35 @@ async def download_file_hybrid(
                     raise HTTPException(
                         status_code=500,
                         detail=f"Failed to download TikTok video: {str(e)}",
+                    )
+            # Instagram 特殊处理：使用 yt-dlp 下载
+            elif platform == "instagram":
+                try:
+                    downloaded_path = await instagram_crawler.download_video(
+                        url=url, output_path=download_path, filename=file_name
+                    )
+                    if not downloaded_path or not os.path.exists(downloaded_path):
+                        raise HTTPException(
+                            status_code=500,
+                            detail="Failed to download Instagram video",
+                        )
+                    file_size = os.path.getsize(downloaded_path)
+                    elapsed = time.time() - start_time
+                    logger.info(
+                        f"[{request_id}] Download success. platform=instagram, video_id={video_id}, file={downloaded_path}, size={file_size}, elapsed={elapsed:.2f}s"
+                    )
+                    response = FileResponse(
+                        path=downloaded_path, filename=file_name, media_type="video/mp4"
+                    )
+                    response.headers["Content-Disposition"] = (
+                        f"attachment; filename={file_name}"
+                    )
+                    response.headers["Content-Length"] = str(file_size)
+                    return response
+                except Exception as e:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Failed to download Instagram video: {str(e)}",
                     )
             # Bilibili 特殊处理：音视频分离
             if platform == "bilibili":

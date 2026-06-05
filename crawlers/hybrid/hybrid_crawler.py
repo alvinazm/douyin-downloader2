@@ -41,6 +41,7 @@ from crawlers.tiktok.app.app_crawler import TikTokAPPCrawler  # 导入TikTok App
 from crawlers.tiktok.tiktok_crawler import TikTokCrawler  # 导入TikTok yt-dlp爬虫
 from crawlers.bilibili.web.web_crawler import BilibiliWebCrawler  # 导入Bilibili Web爬虫
 from crawlers.youtube.youtube_crawler import YouTubeCrawler  # 导入YouTube爬虫
+from crawlers.instagram.instagram_crawler import InstagramCrawler  # 导入Instagram爬虫
 from crawlers.utils.logger import logger  # 导入日志模块
 
 
@@ -52,6 +53,7 @@ class HybridCrawler:
         self.TikTokCrawler = TikTokCrawler()
         self.BilibiliWebCrawler = BilibiliWebCrawler()
         self.YouTubeCrawler = YouTubeCrawler()
+        self.InstagramCrawler = InstagramCrawler()
 
     async def get_bilibili_bv_id(self, url: str) -> str:
         """
@@ -120,6 +122,17 @@ class HybridCrawler:
             # Bilibili只有视频类型，aweme_type设为0(video)
             aweme_type = 0
             logger.info(f"[HybridCrawler] Bilibili视频数据获取成功")
+        # 解析Instagram视频/Parse Instagram video (使用 yt-dlp)
+        elif "instagram.com" in url:
+            platform = "instagram"
+            logger.info(f"[HybridCrawler] 识别为Instagram视频")
+            logger.info(f"[HybridCrawler] 开始使用 yt-dlp 解析Instagram视频...")
+            data = await self.InstagramCrawler.fetch_video_info(url)
+            aweme_id = data.get("video_id")
+            aweme_type = 0  # Instagram only has video type
+            logger.info(
+                f"[HybridCrawler] Instagram视频数据获取成功, aweme_id={aweme_id}"
+            )
         else:
             logger.error(f"[HybridCrawler] 无法识别视频平台: URL={url}")
             raise ValueError(
@@ -195,6 +208,23 @@ class HybridCrawler:
                 "hashtags": None,
             }
         elif platform == "tiktok":
+            result_data = {
+                "type": url_type,
+                "platform": platform,
+                "video_id": aweme_id,
+                "aweme_id": aweme_id,
+                "desc": data.get("title"),
+                "create_time": data.get("upload_date"),
+                "author": {"nickname": data.get("uploader"), "unique_id": None},
+                "music": None,
+                "statistics": {
+                    "play_count": data.get("view_count"),
+                    "digg_count": data.get("like_count"),
+                },
+                "cover_data": {},
+                "hashtags": None,
+            }
+        elif platform == "instagram":
             result_data = {
                 "type": url_type,
                 "platform": platform,
@@ -319,6 +349,38 @@ class HybridCrawler:
                 }
         # YouTube数据处理/YouTube data processing
         elif platform == "youtube":
+            result_data["cover_data"] = {
+                "cover": data.get("thumbnail"),
+                "origin_cover": data.get("thumbnail"),
+                "dynamic_cover": data.get("thumbnail"),
+            }
+            if url_type == "video":
+                full_info = data.get("full_info", {})
+                formats = full_info.get("formats", [])
+                video_url = None
+                audio_url = None
+
+                for f in formats:
+                    if f.get("url"):
+                        if f.get("vcodec") != "none" and f.get("acodec") != "none":
+                            video_url = f.get("url")
+                            break
+                        elif f.get("vcodec") != "none" and video_url is None:
+                            video_url = f.get("url")
+                        elif f.get("acodec") != "none" and audio_url is None:
+                            audio_url = f.get("url")
+
+                api_data = {
+                    "video_data": {
+                        "wm_video_url": video_url,
+                        "wm_video_url_HQ": video_url,
+                        "nwm_video_url": video_url,
+                        "nwm_video_url_HQ": video_url,
+                        "audio_url": audio_url,
+                    }
+                }
+        # Instagram数据处理/Instagram data processing (yt-dlp)
+        elif platform == "instagram":
             result_data["cover_data"] = {
                 "cover": data.get("thumbnail"),
                 "origin_cover": data.get("thumbnail"),
