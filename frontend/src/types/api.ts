@@ -132,6 +132,18 @@ export interface DownloadParams {
 }
 
 /**
+ * Instagram 博主最新视频解析请求参数
+ */
+export interface InsCreatorLatestParams {
+  /** 作者 /reels/ 链接，如 https://www.instagram.com/<user>/reels/ */
+  url: string
+  /** 返回几条（默认 2，范围 1-20） */
+  n: number
+  /** 列表抓取上限（用于排序，默认 20，范围 1-50） */
+  list_limit: number
+}
+
+/**
  * 评论导出请求参数
  */
 export interface CommentExportParams {

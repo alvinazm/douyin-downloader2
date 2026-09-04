@@ -1,5 +1,5 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios'
-import type { ResponseModel, ErrorResponseModel, VideoData, VideoParseParams, DownloadParams, CommentExportParams, IOSShortcut, CommentExportTask } from '@/types/api'
+import type { ResponseModel, ErrorResponseModel, VideoData, VideoParseParams, DownloadParams, CommentExportParams, IOSShortcut, CommentExportTask, InsCreatorLatestParams } from '@/types/api'
 import { createMockCSVFile } from '@/assets/mock-data/comments'
 
 /**
@@ -76,6 +76,22 @@ export class ApiClient {
       params
     })
 
+    return response.data.data
+  }
+
+  /**
+   * 获取 Instagram 博主最近 N 条视频（按发布时间倒序）
+   * 后端路由：POST /api/instagram/creator_latest
+   */
+  static async insCreatorLatest(params: InsCreatorLatestParams): Promise<{
+    username: string
+    items: any[]
+    warning?: string | null
+  }> {
+    const response: AxiosResponse<ResponseModel<any>> = await apiClient.post(
+      '/instagram/creator_latest',
+      params
+    )
     return response.data.data
   }
 

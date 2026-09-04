@@ -41,6 +41,13 @@ const features = [
     title: '导出记录',
     description: '查看和管理您的评论导出任务',
     gradient: 'from-purple-500 to-purple-600'
+  },
+  {
+    id: 'ins-parse',
+    icon: '📷',
+    title: 'ins 视频解析',
+    description: '输入作者 reels 链接，自动获取最近 2 条视频',
+    gradient: 'from-pink-500 to-purple-600'
   }
 ]
 
@@ -63,6 +70,9 @@ const handleOptionSelect = (optionId: string) => {
       break
     case 'download-history':
       router.push('/download-history')
+      break
+    case 'ins-parse':
+      router.push('/ins-parse')
       break
     case 'easter-egg':
       if (configStore.easterEgg) {

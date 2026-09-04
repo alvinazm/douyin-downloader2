@@ -25,6 +25,11 @@ const routes: RouteRecordRaw[] = [
     name: 'download-history',
     component: () => import('@/components/DownloadHistory.vue'),
     meta: { requiresLoad: true }
+  },
+  {
+    path: '/ins-parse',
+    name: 'ins-parse',
+    component: () => import('@/components/InsParse.vue')
   }
 ]
 
