@@ -53,6 +53,13 @@ const PLACEHOLDER_MULTI = `https://www.instagram.com/leonmbz/reels/
 https://www.instagram.com/alivn.azm/reels/
 https://www.instagram.com/yapayzekaserisi/reels/`
 
+/**
+ * 视频发布"新鲜度"阈值（分钟）
+ * 距离当前时间 < FRESH_MINUTES 分钟时，UI 显示 🆕 高亮角标
+ * 测试时可临时改成 90 等其他值
+ */
+const FRESH_MINUTES = 30
+
 const validateInput = (text: string): string | null => {
   const urls = parseUrls(text)
   if (urls.length === 0) {
@@ -96,7 +103,7 @@ const freshnessInfo = (timestamp?: number | null): { isFresh: boolean; label: st
   if (minutes < 1) {
     return { isFresh: true, label: '🆕 刚刚发布', minutes: 0 }
   }
-  if (minutes < 30) {
+  if (minutes < FRESH_MINUTES) {
     return { isFresh: true, label: `🆕 ${minutes} 分钟前发布`, minutes }
   }
   return { isFresh: false, label: '', minutes }
