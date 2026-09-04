@@ -9,6 +9,12 @@ const SERVICES = {
     domains: ['douyin.com'],
     cookieDomain: '.douyin.com'
   },
+  youtube: {
+    name: 'youtube',
+    displayName: 'YouTube',
+    domains: ['youtube.com', 'youtube-nocookie.com'],
+    cookieDomain: '.youtube.com'
+  },
   xiaohongshu: {
     name: 'xiaohongshu',
     displayName: '小红书',
@@ -161,7 +167,7 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
         }
       }
     },
-    { urls: ["https://*.douyin.com/*", "https://douyin.com/*", "https://*.xiaohongshu.com/*", "https://xiaohongshu.com/*"] },
+    { urls: ["https://*.douyin.com/*", "https://douyin.com/*", "https://*.youtube.com/*", "https://youtube.com/*", "https://*.youtube-nocookie.com/*", "https://*.xiaohongshu.com/*", "https://xiaohongshu.com/*"] },
     ["requestHeaders", "extraHeaders"]
   );
 

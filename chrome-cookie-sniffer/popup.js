@@ -12,11 +12,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // 服务配置
     const SERVICES = {
         douyin: { name: 'douyin', displayName: '抖音', icon: '🎵' },
+        youtube: { name: 'youtube', displayName: 'YouTube', icon: '▶️' },
         xiaohongshu: { name: 'xiaohongshu', displayName: '小红书', icon: '📕' }
     };
     
-    // 默认Webhook地址
-    const DEFAULT_WEBHOOK_URL = 'http://localhost:8000/api/hybrid/update_cookie';
+    // 默认Webhook地址（默认 4040 端口，与 start-vue.sh 的 uvicorn --port 一致）
+    const DEFAULT_WEBHOOK_URL = 'http://localhost:4040/api/hybrid/update_cookie';
     
     // 加载Webhook配置
     function loadWebhookConfig() {
