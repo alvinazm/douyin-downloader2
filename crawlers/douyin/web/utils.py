@@ -107,24 +107,71 @@ class TokenManager:
         "https://": proxies_conf.get("https", None),
     }
 
-    # 尝试从配置文件读取Cookie，如果没有则从浏览器获取
-    config_cookie = douyin_manager.get("Cookie", "")
-    if config_cookie:
-        # 解析配置文件的Cookie字符串
+    @staticmethod
+    def _parse_cookie_string(cookie_string: str) -> dict:
+        """将 "k1=v1; k2=v2" 形式的 cookie 字符串解析为字典"""
         cookie_dict = {}
-        for item in config_cookie.split(";"):
+        if not cookie_string:
+            return cookie_dict
+        for item in cookie_string.split(";"):
             item = item.strip()
             if "=" in item:
                 name, value = item.split("=", 1)
                 cookie_dict[name.strip()] = value.strip()
-    else:
-        cookie_dict = get_cookie_from_browser("douyin.com")
+        return cookie_dict
 
-    # 转换为字符串格式
+    @classmethod
+    def _get_current_config_cookie(cls) -> str:
+        """实时从 utils 模块加载的 config 中读取 cookie 字符串
+        （修复原代码中读取路径错误 Bug：实际路径是 TokenManager.douyin.headers.Cookie，
+          不是 TokenManager.douyin.Cookie）
+        """
+        try:
+            return config.get("TokenManager", {}).get("douyin", {}).get(
+                "headers", {}
+            ).get("Cookie", "") or ""
+        except Exception:
+            return ""
+
     @classmethod
     def get_cookie_string(cls) -> str:
-        """返回Cookie字符串格式"""
-        return "; ".join([f"{k}={v}" for k, v in cls.cookie_dict.items()])
+        """返回 Cookie 字符串格式
+
+        每次调用都从 utils 模块的 config 实时读取，自动反映 update_cookie 接口
+        写入的新值（修复 cookie 不同步 Bug）。
+        """
+        config_cookie = cls._get_current_config_cookie()
+        if config_cookie:
+            cookie_dict = cls._parse_cookie_string(config_cookie)
+        else:
+            # 没有配置 cookie 时回退到从浏览器自动嗅探
+            cookie_dict = get_cookie_from_browser("douyin.com")
+        return "; ".join([f"{k}={v}" for k, v in cookie_dict.items()])
+
+    @classmethod
+    def update_cookie_string(cls, cookie: str) -> None:
+        """更新 utils 模块 config 中的 cookie，使后续 get_cookie_string() 能立即读到新值
+
+        同时刷新 douyin_manager 引用，避免类属性指向旧的子字典。
+        """
+        global config
+        if "TokenManager" not in config or not isinstance(
+            config.get("TokenManager"), dict
+        ):
+            config["TokenManager"] = {}
+        if (
+            "douyin" not in config["TokenManager"]
+            or not isinstance(config["TokenManager"].get("douyin"), dict)
+        ):
+            config["TokenManager"]["douyin"] = {}
+        douyin_conf = config["TokenManager"]["douyin"]
+        if "headers" not in douyin_conf or not isinstance(
+            douyin_conf.get("headers"), dict
+        ):
+            douyin_conf["headers"] = {}
+        douyin_conf["headers"]["Cookie"] = cookie
+        # 刷新类引用，避免持有旧子字典引用
+        cls.douyin_manager = douyin_conf
 
     @classmethod
     def gen_real_msToken(cls) -> str:

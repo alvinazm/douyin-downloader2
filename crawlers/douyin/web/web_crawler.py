@@ -447,13 +447,17 @@ class DouyinWebCrawler:
             config["TokenManager"][service]["headers"]["Cookie"],
         )
         print("DouyinWebCrawler to update", cookie)
-        # 1. 更新内存中的配置（立即生效）
+        # 1. 更新内存中的 web_crawler 模块的 config（保持原行为）
         config["TokenManager"][service]["headers"]["Cookie"] = cookie
         print(
             "DouyinWebCrawler cookie updated",
             config["TokenManager"][service]["headers"]["Cookie"],
         )
-        # 2. 写入配置文件（持久化）
+        # 2. 同步更新 utils.TokenManager 模块加载的 config（修复 Bug：
+        #    此前只更新了 web_crawler 的 config，utils.TokenManager 仍持有旧的
+        #    cookie_dict，导致 get_cookie_string() 返回旧值 / 空值，请求抖音失败）
+        TokenManager.update_cookie_string(cookie)
+        # 3. 写入配置文件（持久化）
         config_path = f"{path}/config.yaml"
         with open(config_path, "w", encoding="utf-8") as file:
             yaml.dump(
