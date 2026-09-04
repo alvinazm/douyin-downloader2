@@ -54,11 +54,11 @@ https://www.instagram.com/alivn.azm/reels/
 https://www.instagram.com/yapayzekaserisi/reels/`
 
 /**
- * 视频发布"新鲜度"阈值（分钟）
+ * 视频发布时间"新鲜度"阈值（分钟）
  * 距离当前时间 < FRESH_MINUTES 分钟时，UI 显示 🆕 高亮角标
  * 测试时可临时改成 90 等其他值
  */
-const FRESH_MINUTES = 90
+const FRESH_MINUTES = 30
 
 const validateInput = (text: string): string | null => {
   const urls = parseUrls(text)
@@ -109,6 +109,20 @@ const freshnessInfo = (timestamp?: number | null): { isFresh: boolean; label: st
   return { isFresh: false, label: '', minutes }
 }
 
+/**
+ * 筛选开关：是否仅展示发布时间 < FRESH_MINUTES 的视频
+ * 默认 true，跟绿色高亮角标逻辑一致
+ */
+const onlyFresh = ref(true)
+
+/**
+ * 单条视频是否符合"新鲜"筛选
+ * 复用 freshnessInfo 的判定（< FRESH_MINUTES 且 timestamp 有效）
+ */
+const isFreshItem = (item: InsReelItem): boolean => {
+  return freshnessInfo(item.timestamp).isFresh
+}
+
 const fetchLatest = async () => {
   errorMessage.value = ''
   const err = validateInput(inputUrl.value)
@@ -127,6 +141,7 @@ const fetchLatest = async () => {
 
   loading.value = true
   result.value = null
+  onlyFresh.value = true  // 每次新查询默认开启筛选
   try {
     // 多个 URL 走 urls 数组；单个走 url 单数（向后兼容）
     const data = await ApiClient.insCreatorLatest({
@@ -221,6 +236,19 @@ const closeErrorModal = () => {
             </ul>
           </div>
           <div class="flex gap-2">
+            <label
+              class="flex items-center gap-1.5 px-3 py-2 bg-green-50 border border-green-200 rounded-lg cursor-pointer hover:bg-green-100 transition-colors"
+              :title="`仅显示发布时间距今 < ${FRESH_MINUTES} 分钟的视频（默认开启）`"
+            >
+              <input
+                type="checkbox"
+                v-model="onlyFresh"
+                class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+              />
+              <span class="text-xs text-green-700 font-medium whitespace-nowrap">
+                仅 &lt; {{ FRESH_MINUTES }} 分钟内
+              </span>
+            </label>
             <button
               @click="router.push('/')"
               class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-all duration-200"
@@ -253,9 +281,16 @@ const closeErrorModal = () => {
         <div v-if="result.items && result.items.length === 0 && !result.warning" class="text-center text-gray-500 py-12">
           未抓取到任何视频，请检查链接或 Chrome 登录态
         </div>
+        <div v-else-if="onlyFresh && (result.items || []).filter(isFreshItem).length === 0 && (result.items || []).length > 0" class="text-center text-gray-500 py-12">
+          没有发布时间 &lt; {{ FRESH_MINUTES }} 分钟的视频（共 {{ result.items.length }} 条）
+          <button @click="onlyFresh = false" class="ml-2 text-blue-500 hover:underline text-sm">
+            显示全部
+          </button>
+        </div>
 
         <div
-          v-for="(item, idx) in (result.items || [])"
+          v-for="(item, idx) in (onlyFresh ? (result.items || []).filter(isFreshItem) : (result.items || []))"
+          v-if="!onlyFresh || isFreshItem(item)"
         :key="item.shortcode"
         class="bg-white border-2 border-gray-200 rounded-xl p-5 shadow-md hover:shadow-lg transition-shadow"
       >
@@ -329,9 +364,19 @@ const closeErrorModal = () => {
         <div v-if="!result.results || result.results.length === 0" class="text-center text-gray-500 py-12">
           未抓取到任何作者，请检查链接或 Chrome 登录态
         </div>
+        <div
+          v-else-if="onlyFresh && (result.results || []).every(g => (g.items || []).filter(isFreshItem).length === 0)"
+          class="text-center text-gray-500 py-12"
+        >
+          所有作者都没有发布时间 &lt; {{ FRESH_MINUTES }} 分钟的视频
+          <button @click="onlyFresh = false" class="ml-2 text-blue-500 hover:underline text-sm">
+            显示全部
+          </button>
+        </div>
 
         <div
           v-for="(group, gIdx) in (result.results || [])"
+          v-show="!onlyFresh || (group.items || []).filter(isFreshItem).length > 0"
           :key="group.url || gIdx"
           class="bg-white border-2 border-gray-200 rounded-xl p-5 shadow-md space-y-4"
         >
@@ -367,16 +412,23 @@ const closeErrorModal = () => {
               无数据
             </span>
             <span
+              v-else-if="onlyFresh && group.items.filter(isFreshItem).length === 0"
+              class="text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2 py-1 rounded"
+            >
+              {{ group.items.length }} 条，无 < {{ FRESH_MINUTES }} 分钟内
+            </span>
+            <span
               v-else
               class="text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded"
             >
-              ✓ {{ group.items.length }} 条
+              ✓ {{ group.items.filter(isFreshItem).length }} / {{ group.items.length }} 新鲜
             </span>
           </div>
 
           <!-- 该作者的 2 条视频 -->
           <div
-            v-for="(item, idx) in group.items"
+            v-for="(item, idx) in (onlyFresh ? group.items.filter(isFreshItem) : group.items)"
+            v-if="!onlyFresh || isFreshItem(item)"
             :key="item.shortcode"
             class="flex items-start gap-3 pl-2"
           >
