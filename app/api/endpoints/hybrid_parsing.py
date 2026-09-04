@@ -2,6 +2,8 @@ import asyncio
 import traceback
 
 from fastapi import APIRouter, Body, Query, Request, HTTPException  # 导入FastAPI组件
+import os
+import yaml
 
 from app.api.models.APIResponseModel import (
     ResponseModel,
@@ -140,9 +142,46 @@ async def update_cookie_api(
                     "message": f"Cookie for {service} will be updated (not implemented yet)"
                 },
             )
+        elif service == "youtube":
+            from crawlers.youtube.web.utils import TokenManager
+
+            # 1. 更新 youtube web 模块的 config + 持久化 yaml
+            from crawlers.youtube.web.utils import config as yt_config
+
+            yt_config["TokenManager"]["youtube"]["headers"]["Cookie"] = cookie
+
+            # __file__ = app/api/endpoints/hybrid_parsing.py
+            # 向上 4 层才是项目根（app/api/endpoints -> app/api -> app -> project_root）
+            project_root = os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+            )
+            yt_config_path = os.path.join(
+                project_root,
+                "crawlers",
+                "youtube",
+                "web",
+                "config.yaml",
+            )
+            os.makedirs(os.path.dirname(yt_config_path), exist_ok=True)
+            with open(yt_config_path, "w", encoding="utf-8") as f_yt:
+                yaml.dump(
+                    yt_config,
+                    f_yt,
+                    default_flow_style=False,
+                    allow_unicode=True,
+                    indent=2,
+                )
+
+            # 2. 刷新 TokenManager 类引用（和 douyin 修复一致）
+            TokenManager.update_cookie_string(cookie)
+            return ResponseModel(
+                code=200,
+                router=request.url.path,
+                data={"message": f"Cookie for {service} updated successfully"},
+            )
         else:
             raise ValueError(
-                f"Service '{service}' is not supported. Supported services: douyin, tiktok, bilibili"
+                f"Service '{service}' is not supported. Supported services: douyin, tiktok, bilibili, youtube"
             )
     except Exception as e:
         status_code = 400
