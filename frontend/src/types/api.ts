@@ -135,9 +135,11 @@ export interface DownloadParams {
  * Instagram 博主最新视频解析请求参数
  */
 export interface InsCreatorLatestParams {
-  /** 作者 /reels/ 链接，如 https://www.instagram.com/<user>/reels/ */
-  url: string
-  /** 返回几条（默认 2，范围 1-20） */
+  /** 单个作者 /reels/ 链接（向后兼容）。与 urls 二选一 */
+  url?: string
+  /** 多个作者 /reels/ 链接列表（推荐）。一次解析多个博主 */
+  urls?: string[]
+  /** 每个作者返回几条（默认 2，范围 1-20） */
   n: number
   /** 列表抓取上限（用于排序，默认 20，范围 1-50） */
   list_limit: number

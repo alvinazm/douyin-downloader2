@@ -82,12 +82,12 @@ export class ApiClient {
   /**
    * 获取 Instagram 博主最近 N 条视频（按发布时间倒序）
    * 后端路由：POST /api/instagram/creator_latest
+   *
+   * 支持单个 url 或 urls 数组。返回类型：
+   *   - 单数：{ username, items, warning? }
+   *   - urls：{ results: [{ username, items, warning?, url }] }
    */
-  static async insCreatorLatest(params: InsCreatorLatestParams): Promise<{
-    username: string
-    items: any[]
-    warning?: string | null
-  }> {
+  static async insCreatorLatest(params: InsCreatorLatestParams): Promise<any> {
     const response: AxiosResponse<ResponseModel<any>> = await apiClient.post(
       '/instagram/creator_latest',
       params
