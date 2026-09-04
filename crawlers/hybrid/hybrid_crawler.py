@@ -33,6 +33,7 @@
 
 import asyncio
 import re
+from datetime import datetime
 import httpx
 
 from crawlers.douyin.web.web_crawler import DouyinWebCrawler  # 导入抖音Web爬虫
@@ -43,6 +44,48 @@ from crawlers.bilibili.web.web_crawler import BilibiliWebCrawler  # 导入Bilibi
 from crawlers.youtube.youtube_crawler import YouTubeCrawler  # 导入YouTube爬虫
 from crawlers.instagram.instagram_crawler import InstagramCrawler  # 导入Instagram爬虫
 from crawlers.utils.logger import logger  # 导入日志模块
+
+
+def _format_publish_time(raw_time) -> str:
+    u"""统一格式化各平台的发布时间为 "YYYY-MM-DD HH:MM"。
+
+    Args:
+        raw_time: 各平台原始值，可能是：
+            - None / 空
+            - int/float Unix 时间戳（秒，抖音 / Bilibili）
+            - "YYYYMMDD" 字符串（YouTube / TikTok / Instagram）
+
+    Returns:
+        str: 格式化后的时间字符串；无法解析时返回原值或空串。
+    """
+    if not raw_time:
+        return ""
+    try:
+        # 1. Unix 时间戳（int / float）
+        if isinstance(raw_time, (int, float)):
+            ts = float(raw_time)
+            if ts > 1e12:
+                ts = ts / 1000.0
+            dt = datetime.fromtimestamp(ts)
+            return dt.strftime("%Y-%m-%d %H:%M")
+        # 2. 字符串
+        s = str(raw_time).strip()
+        # ISO 8601（含 T）优先走 fromisoformat，避免被下面的 "len >= 16" 截断
+        if "T" in s:
+            try:
+                dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+                return dt.strftime("%Y-%m-%d %H:%M")
+            except Exception:
+                pass
+        # YYYYMMDD
+        if len(s) == 8 and s.isdigit():
+            return s[0:4] + "-" + s[4:6] + "-" + s[6:8] + " 00:00"
+        # YYYY-MM-DD HH:MM:SS
+        if len(s) >= 16 and s[4] == "-" and s[7] == "-":
+            return s[0:16]
+        return s
+    except Exception:
+        return str(raw_time) if raw_time else ""
 
 
 class HybridCrawler:
@@ -184,6 +227,7 @@ class HybridCrawler:
                 "video_id": aweme_id,
                 "desc": data.get("title"),  # Bilibili使用title
                 "create_time": data.get("pubdate"),  # Bilibili使用pubdate
+                "formatted_create_time": _format_publish_time(data.get("pubdate")),
                 "author": data.get("owner"),  # Bilibili使用owner
                 "music": None,  # Bilibili没有音乐信息
                 "statistics": data.get("stat"),  # Bilibili使用stat
@@ -198,6 +242,7 @@ class HybridCrawler:
                 "aweme_id": aweme_id,  # 兼容前端字段
                 "desc": data.get("title"),
                 "create_time": data.get("upload_date"),
+                "formatted_create_time": _format_publish_time(data.get("upload_date")),
                 "author": {"nickname": data.get("uploader"), "unique_id": None},
                 "music": None,
                 "statistics": {
@@ -215,6 +260,7 @@ class HybridCrawler:
                 "aweme_id": aweme_id,
                 "desc": data.get("title"),
                 "create_time": data.get("upload_date"),
+                "formatted_create_time": _format_publish_time(data.get("upload_date")),
                 "author": {"nickname": data.get("uploader"), "unique_id": None},
                 "music": None,
                 "statistics": {
@@ -232,6 +278,7 @@ class HybridCrawler:
                 "aweme_id": aweme_id,
                 "desc": data.get("title"),
                 "create_time": data.get("upload_date"),
+                "formatted_create_time": _format_publish_time(data.get("upload_date")),
                 "author": {"nickname": data.get("uploader"), "unique_id": None},
                 "music": None,
                 "statistics": {
@@ -248,6 +295,7 @@ class HybridCrawler:
                 "video_id": aweme_id,  # 统一使用video_id字段，内容可能是aweme_id或bv_id
                 "desc": data.get("desc"),
                 "create_time": data.get("create_time"),
+                "formatted_create_time": _format_publish_time(data.get("create_time")),
                 "author": data.get("author"),
                 "music": data.get("music"),
                 "statistics": data.get("statistics"),
