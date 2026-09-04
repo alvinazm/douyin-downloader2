@@ -58,7 +58,7 @@ https://www.instagram.com/yapayzekaserisi/reels/`
  * 距离当前时间 < FRESH_MINUTES 分钟时，UI 显示 🆕 高亮角标
  * 测试时可临时改成 90 等其他值
  */
-const FRESH_MINUTES = 30
+const FRESH_MINUTES = 90
 
 const validateInput = (text: string): string | null => {
   const urls = parseUrls(text)
@@ -279,9 +279,6 @@ const closeErrorModal = () => {
               >
                 {{ freshnessInfo(item.timestamp).label }}
               </span>
-              <span v-if="item.upload_date && item.formatted_publish_time" class="text-xs text-gray-400">
-                ({{ item.upload_date }})
-              </span>
             </div>
 
             <!-- 描述 -->
@@ -399,9 +396,6 @@ const closeErrorModal = () => {
                   :title="`距今 ${freshnessInfo(item.timestamp).minutes} 分钟`"
                 >
                   {{ freshnessInfo(item.timestamp).label }}
-                </span>
-                <span v-if="item.upload_date && item.formatted_publish_time" class="text-xs text-gray-400">
-                  ({{ item.upload_date }})
                 </span>
                 <span v-if="item.uploader && item.uploader !== group.username" class="text-xs text-gray-500">
                   by @{{ item.uploader }}
