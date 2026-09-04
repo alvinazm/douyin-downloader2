@@ -12,6 +12,7 @@ from app.api.endpoints import (
     comment_export_task_api,
     config_api,
     logger,
+    instagram_creator,
 )
 
 router = APIRouter()
@@ -33,6 +34,9 @@ router.include_router(
 
 # Hybrid routers
 router.include_router(hybrid_parsing.router, prefix="/hybrid", tags=["Hybrid-API"])
+router.include_router(
+    instagram_creator.router, prefix="/instagram", tags=["Instagram-Creator-API"]
+)
 
 # iOS_Shortcut routers
 router.include_router(ios_shortcut.router, prefix="/ios", tags=["iOS-Shortcut"])
