@@ -76,6 +76,32 @@ const parseUrls = (text: string): string[] => {
     .filter(u => u.length > 0)
 }
 
+/**
+ * 判断视频是否"刚发布"（< 30 分钟）
+ * 返回 { isFresh, label, minutes }
+ *  - isFresh: true/false
+ *  - label: 用于 UI 显示的本地化字符串（'刚刚发布' / 'X 分钟前' / ''）
+ *  - minutes: 距离当前时间的分钟数（无 timestamp 时为 null）
+ */
+const freshnessInfo = (timestamp?: number | null): { isFresh: boolean; label: string; minutes: number | null } => {
+  if (!timestamp || typeof timestamp !== 'number') {
+    return { isFresh: false, label: '', minutes: null }
+  }
+  // timestamp 是 Unix 秒
+  const minutes = Math.floor((Date.now() / 1000 - timestamp) / 60)
+  if (minutes < 0) {
+    // 时间在未来（罕见，可能是时区差异），当作刚发布
+    return { isFresh: true, label: '🆕 刚刚发布', minutes: 0 }
+  }
+  if (minutes < 1) {
+    return { isFresh: true, label: '🆕 刚刚发布', minutes: 0 }
+  }
+  if (minutes < 30) {
+    return { isFresh: true, label: `🆕 ${minutes} 分钟前发布`, minutes }
+  }
+  return { isFresh: false, label: '', minutes }
+}
+
 const fetchLatest = async () => {
   errorMessage.value = ''
   const err = validateInput(inputUrl.value)
@@ -239,6 +265,13 @@ const closeErrorModal = () => {
               <span class="font-medium text-pink-600" :title="item.timestamp ? '发布时间（UTC+8）' : ''">
                 📅 发布于 {{ item.formatted_publish_time || item.upload_date || '未知时间' }}
               </span>
+              <span
+                v-if="freshnessInfo(item.timestamp).isFresh"
+                class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 border border-green-300 rounded-full text-xs font-medium animate-pulse"
+                :title="`距今 ${freshnessInfo(item.timestamp).minutes} 分钟`"
+              >
+                {{ freshnessInfo(item.timestamp).label }}
+              </span>
               <span v-if="item.upload_date && item.formatted_publish_time" class="text-xs text-gray-400">
                 ({{ item.upload_date }})
               </span>
@@ -352,6 +385,13 @@ const closeErrorModal = () => {
               <div class="flex items-center gap-2 text-sm text-gray-700 mb-1 flex-wrap">
                 <span class="font-medium text-pink-600" :title="item.timestamp ? '发布时间（UTC+8）' : ''">
                   📅 发布于 {{ item.formatted_publish_time || item.upload_date || '未知时间' }}
+                </span>
+                <span
+                  v-if="freshnessInfo(item.timestamp).isFresh"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 border border-green-300 rounded-full text-xs font-medium animate-pulse"
+                  :title="`距今 ${freshnessInfo(item.timestamp).minutes} 分钟`"
+                >
+                  {{ freshnessInfo(item.timestamp).label }}
                 </span>
                 <span v-if="item.upload_date && item.formatted_publish_time" class="text-xs text-gray-400">
                   ({{ item.upload_date }})
