@@ -26,49 +26,108 @@ router = APIRouter()
 )
 async def instagram_creator_latest(
     request: Request,
-    url: str = Body(..., embed=True, description="作者 /reels/ 链接"),
-    n: int = Body(default=2, embed=True, ge=1, le=20, description="返回几条"),
+    url: str = Body(default=None, embed=True, description="单个作者 /reels/ 链接（向后兼容）"),
+    urls: list = Body(
+        default=None, embed=True, description="多个作者 /reels/ 链接列表（推荐）"
+    ),
+    n: int = Body(default=2, embed=True, ge=1, le=20, description="每个作者返回几条"),
     list_limit: int = Body(
         default=20, embed=True, ge=1, le=50, description="列表抓取上限（用于排序）"
     ),
 ):
     """
-    输入作者 reels 链接，按发布时间倒序返回最近 N 条视频元数据。
+    输入作者 reels 链接（支持单个 url 或 urls 列表），按发布时间倒序返回
+    每个作者最近 N 条视频元数据。
 
-    每条返回：
-    - shortcode: Instagram 短码
-    - url: 完整 reel URL（可用于下载）
-    - title / description
-    - uploader / uploader_id
-    - timestamp (Unix 秒)
-    - upload_date (YYYYMMDD)
-    - formatted_publish_time (YYYY-MM-DD HH:MM:SS UTC+8)
-    - like_count / comment_count / view_count
-    - thumbnail
+    单数 url 用法：
+        POST {url: "https://www.instagram.com/<user>/reels/", n: 2}
+        返回: { username, items, warning }
+
+    复数 urls 用法（推荐）：
+        POST {urls: ["...reels/", "...reels/", ...], n: 2}
+        返回: { results: [{ username, items, warning }, ...] }
+
+    字段说明同单数用法。
     """
-    logger.info(f"[Instagram-API] 抓取作者最近视频: url={url}, n={n}")
-    try:
-        result = await get_creator_latest_reels_async(url, n=n, list_limit=list_limit)
-        items = result.get("items") or []
-        warning = result.get("warning")
-        logger.info(
-            f"[Instagram-API] 抓取成功: username={result.get('username')}, items={len(items)}"
+    # 归一化入参：urls 优先，回退到 url 包装成单元素列表
+    if urls:
+        url_list = [u.strip() for u in urls if u and u.strip()]
+    elif url:
+        url_list = [url.strip()]
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": 422,
+                "message": "url 或 urls 必须传一个",
+                "router": request.url.path,
+                "params": dict(request.query_params),
+            },
         )
+
+    if not url_list:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": 422,
+                "message": "url 或 urls 不能为空",
+                "router": request.url.path,
+                "params": dict(request.query_params),
+            },
+        )
+
+    logger.info(f"[Instagram-API] 抓取 {len(url_list)} 个作者: n={n}")
+
+    # 并发抓取多个作者（Playwright + yt-dlp 阻塞，放到线程池）
+    import asyncio
+    tasks = [get_creator_latest_reels_async(u, n=n, list_limit=list_limit) for u in url_list]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # 统一异常处理：单个失败不影响其他
+    out_results = []
+    for u, r in zip(url_list, results):
+        if isinstance(r, Exception):
+            logger.error(f"[Instagram-API] 抓取失败: url={u}, err={r}")
+            out_results.append(
+                {
+                    "url": u,
+                    "username": None,
+                    "items": [],
+                    "warning": f"抓取失败: {r}",
+                }
+            )
+        else:
+            items = r.get("items") or []
+            out_results.append(
+                {
+                    "url": u,
+                    "username": r.get("username"),
+                    "items": items,
+                    "warning": r.get("warning"),
+                }
+            )
+
+    # 单数 url 模式：返回旧的 schema（向后兼容）
+    if not urls and url:
+        first = out_results[0]
         return ResponseModel(
             code=200,
             router=request.url.path,
             data={
-                "username": result.get("username"),
-                "items": items,
-                "warning": warning,
+                "username": first["username"],
+                "items": first["items"],
+                "warning": first["warning"],
             },
         )
-    except Exception as e:
-        logger.error(
-            f"[Instagram-API] 抓取作者最近视频失败: url={url}, err={e}"
-        )
-        logger.error(traceback.format_exc())
-        raise _to_http_500(e, request)
+
+    # urls 模式：返回 results 列表
+    return ResponseModel(
+        code=200,
+        router=request.url.path,
+        data={"results": out_results},
+    )
 
 
 def _to_http_500(e: Exception, request: Request):
