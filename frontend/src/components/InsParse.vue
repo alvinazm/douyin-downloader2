@@ -264,13 +264,8 @@ const closeErrorModal = () => {
               <span v-if="item.like_count != null">❤️ {{ item.like_count.toLocaleString() }}</span>
               <span v-if="item.comment_count != null">💬 {{ item.comment_count.toLocaleString() }}</span>
               <span v-if="item.view_count != null">▶️ {{ item.view_count.toLocaleString() }}</span>
-              <span v-if="item.duration != null" title="视频时长">⏱️ 时长 {{ item.duration }}s</span>
+              <span v-if="item.duration != null" title="视频时长">⏱️ 时长 {{ item.duration.toFixed(2) }}s</span>
             </div>
-
-            <!-- URL -->
-            <a :href="item.url" target="_blank" class="text-xs text-blue-500 hover:underline break-all block mb-3">
-              {{ item.url }}
-            </a>
 
             <!-- 下载按钮 -->
             <button
@@ -387,12 +382,8 @@ const closeErrorModal = () => {
                     <span v-if="item.like_count != null">❤️ {{ item.like_count.toLocaleString() }}</span>
                     <span v-if="item.comment_count != null">💬 {{ item.comment_count.toLocaleString() }}</span>
                     <span v-if="item.view_count != null">▶️ {{ item.view_count.toLocaleString() }}</span>
-                    <span v-if="item.duration != null" title="视频时长">⏱️ {{ item.duration }}s</span>
+                    <span v-if="item.duration != null" title="视频时长">⏱️ {{ item.duration.toFixed(2) }}s</span>
                   </div>
-
-                  <a :href="item.url" target="_blank" class="text-xs text-blue-500 hover:underline break-all block">
-                    {{ item.url }}
-                  </a>
 
                   <button
                     @click="downloadReel(item)"
