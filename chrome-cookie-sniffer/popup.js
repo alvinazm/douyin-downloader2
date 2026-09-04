@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const SERVICES = {
         douyin: { name: 'douyin', displayName: '抖音', icon: '🎵' },
         youtube: { name: 'youtube', displayName: 'YouTube', icon: '▶️' },
+        instagram: { name: 'instagram', displayName: 'Instagram', icon: '📷' },
         xiaohongshu: { name: 'xiaohongshu', displayName: '小红书', icon: '📕' }
     };
     

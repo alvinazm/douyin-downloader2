@@ -179,9 +179,44 @@ async def update_cookie_api(
                 router=request.url.path,
                 data={"message": f"Cookie for {service} updated successfully"},
             )
+        elif service == "instagram":
+            from crawlers.instagram.web.utils import TokenManager
+
+            # 1. 更新 instagram web 模块的 config + 持久化 yaml
+            from crawlers.instagram.web.utils import config as ig_config
+
+            ig_config["TokenManager"]["instagram"]["headers"]["Cookie"] = cookie
+
+            project_root = os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+            )
+            ig_config_path = os.path.join(
+                project_root,
+                "crawlers",
+                "instagram",
+                "web",
+                "config.yaml",
+            )
+            os.makedirs(os.path.dirname(ig_config_path), exist_ok=True)
+            with open(ig_config_path, "w", encoding="utf-8") as f_ig:
+                yaml.dump(
+                    ig_config,
+                    f_ig,
+                    default_flow_style=False,
+                    allow_unicode=True,
+                    indent=2,
+                )
+
+            # 2. 刷新 TokenManager 类引用
+            TokenManager.update_cookie_string(cookie)
+            return ResponseModel(
+                code=200,
+                router=request.url.path,
+                data={"message": f"Cookie for {service} updated successfully"},
+            )
         else:
             raise ValueError(
-                f"Service '{service}' is not supported. Supported services: douyin, tiktok, bilibili, youtube"
+                f"Service '{service}' is not supported. Supported services: douyin, tiktok, bilibili, youtube, instagram"
             )
     except Exception as e:
         status_code = 400
