@@ -101,11 +101,20 @@ class InstagramCrawler:
         if download:
             ydl_opts.update(
                 {
-                    "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+                    # Instagram 没有 mp4 视频流（通常 webm/VP9），原
+                    # bestvideo[ext=mp4]+bestaudio[ext=m4a] 强制 mp4 会让 yt-dlp
+                    # fallback 到 best[ext=mp4]/best 拿到奇怪格式或合并失败。
+                    # 改为 bv*+ba/b：选最佳视频流 + 最佳音频流合并，fallback 到 best 单文件。
+                    # 跟命令行 `yt-dlp -f best` 行为一致。
+                    "format": "bv*+ba/b",
                     "outtmpl": os.path.join(output_path, "%(title)s [%(id)s].%(ext)s"),
                     "merge_output_format": "mp4",
                     "socket_timeout": 60,
                     "overwrites": True,
+                    # 双保险 cookie 源：chrome-cookie-sniffer 推送的 cookie（add_headers）
+                    # + 系统 Chrome 已登录的 sessionid（cookiesfrombrowser）
+                    # 这样无论哪个 cookie 源有效，都能成功下载。
+                    "cookiesfrombrowser": ("chrome",),
                 }
             )
 
