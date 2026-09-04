@@ -101,19 +101,25 @@ class InstagramCrawler:
         if download:
             ydl_opts.update(
                 {
-                    # Instagram 没有 mp4 视频流（通常 webm/VP9），原
-                    # bestvideo[ext=mp4]+bestaudio[ext=m4a] 强制 mp4 会让 yt-dlp
-                    # fallback 到 best[ext=mp4]/best 拿到奇怪格式或合并失败。
-                    # 改为 bv*+ba/b：选最佳视频流 + 最佳音频流合并，fallback 到 best 单文件。
-                    # 跟命令行 `yt-dlp -f best` 行为一致。
-                    "format": "bv*+ba/b",
+                    # QuickTime 不支持 VP9 编码（即使在 mp4 容器里）。
+                    # 优先选 H.264 视频 + AAC 音频（QuickTime 原生支持）。
+                    # fallback 链：
+                    #   1. bv*H.264 + ba*AAC  → 直接合并，无转码（最快）
+                    #   2. bv* 单文件 mp4        → 单文件下载
+                    #   3. bv*+ba/b 任意          → recodevideo/recodeaudio 让 ffmpeg 转码为 H.264+AAC
+                    "format": "bv*[vcodec^=avc1]+ba[acodec^=mp4a]/b[ext=mp4][vcodec^=avc1]/bv*+ba/b",
                     "outtmpl": os.path.join(output_path, "%(title)s [%(id)s].%(ext)s"),
                     "merge_output_format": "mp4",
+                    # 兜底转码：如果最终格式不是 H.264/AAC，强制 ffmpeg 转码为 QuickTime 兼容
+                    # 这会让下载变慢一些（CPU 转码），但保证播放兼容性
+                    "postprocessor_args": {
+                        "videoconvertor": ["-c:v", "libx264", "-preset", "fast", "-crf", "23"],
+                        "audioconvertor": ["-c:a", "aac", "-b:a", "128k"],
+                    },
                     "socket_timeout": 60,
                     "overwrites": True,
                     # 双保险 cookie 源：chrome-cookie-sniffer 推送的 cookie（add_headers）
                     # + 系统 Chrome 已登录的 sessionid（cookiesfrombrowser）
-                    # 这样无论哪个 cookie 源有效，都能成功下载。
                     "cookiesfrombrowser": ("chrome",),
                 }
             )
