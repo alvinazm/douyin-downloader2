@@ -207,11 +207,12 @@ const closeErrorModal = () => {
               {{ item.description }}
             </div>
 
-            <!-- 缩略图 -->
+            <!-- 缩略图：限制最大宽度 320px，IG reel 竖屏 9:16 -->
             <a v-if="item.thumbnail" :href="item.url" target="_blank" class="block mb-3">
               <img
                 :src="item.thumbnail"
-                class="w-full max-h-64 object-cover rounded-lg border border-gray-200"
+                class="w-full max-w-xs max-h-80 object-cover rounded-lg border border-gray-200"
+                style="aspect-ratio: 9 / 16;"
                 loading="lazy"
               />
             </a>
