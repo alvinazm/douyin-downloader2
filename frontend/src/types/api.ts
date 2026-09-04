@@ -26,10 +26,15 @@ export interface ErrorResponseModel {
  */
 export interface VideoData {
   type: 'video' | 'image'
-  platform: 'douyin' | 'tiktok' | 'bilibili'
+  platform: 'douyin' | 'tiktok' | 'bilibili' | 'youtube' | 'instagram'
   video_id: string
   desc: string
   create_time: number
+  /**
+   * 后端统一格式化后的发布时间 "YYYY-MM-DD HH:MM"。
+   * 如果后端没给，前端 formatPublishTime 会按平台做客户端兜底。
+   */
+  formatted_create_time?: string
   author: AuthorInfo
   music: MusicInfo | null
   statistics: Statistics

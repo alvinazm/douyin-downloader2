@@ -122,6 +122,42 @@ const getVideoFilename = (result: any, type: 'nwm' | 'wm') => {
   const videoId = result.data.video_id || 'video'
   return `${prefix}${videoId}_${safeDesc}.mp4`
 }
+
+/**
+ * 统一格式化发布时间。
+ * 优先使用后端 _format_publish_time 输出的 formatted_create_time 字段
+ * （如 "2024-08-15 12:34"）；如果后端没给，则按平台做客户端兜底格式化。
+ */
+const formatPublishTime = (data: any): string => {
+  // 1. 优先用后端的格式化结果
+  if (data?.formatted_create_time) {
+    return data.formatted_create_time
+  }
+  const raw = data?.create_time
+  if (!raw) return '未知'
+  // 2. 客户端兜底
+  try {
+    // 抖音 / Bilibili：Unix 时间戳（秒）
+    if (typeof raw === 'number') {
+      const ts = raw > 1e12 ? raw / 1000 : raw
+      const d = new Date(ts * 1000)
+      const pad = (n: number) => n.toString().padStart(2, '0')
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+    }
+    // YouTube / TikTok / Instagram：YYYYMMDD
+    const s = String(raw).trim()
+    if (s.length === 8 && /^\d+$/.test(s)) {
+      return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)} 00:00`
+    }
+    // ISO 8601 / YYYY-MM-DD HH:MM:SS：取前 16 字
+    if (s.length >= 16) {
+      return s.slice(0, 16)
+    }
+    return s
+  } catch {
+    return String(raw)
+  }
+}
 </script>
 
 <template>
@@ -259,6 +295,10 @@ const getVideoFilename = (result: any, type: 'nwm' | 'wm') => {
             <div class="flex flex-col">
               <span class="text-gray-500 mb-1">作者ID</span>
               <span class="text-gray-900 font-medium">{{ result.data.author.unique_id }}</span>
+            </div>
+            <div class="flex flex-col">
+              <span class="text-gray-500 mb-1">发布时间</span>
+              <span class="text-gray-900 font-medium">{{ formatPublishTime(result.data) }}</span>
             </div>
           </div>
 
