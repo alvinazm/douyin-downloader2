@@ -366,6 +366,42 @@ async def download_file_hybrid(
                 return response
             fast_path_found = True
 
+    # Instagram: https://www.instagram.com/reel/xxx 或 /p/xxx 或 /tv/xxx
+    if "instagram.com" in url_lower and not fast_path_found:
+        import re
+
+        # 匹配 /reel/xxx 或 /p/xxx 或 /tv/xxx
+        match = re.search(
+            r"instagram\.com/(?:reel|p|tv)/([A-Za-z0-9_-]+)", url
+        )
+        if match:
+            video_id = match.group(1)
+            platform = "instagram"
+            download_path = os.path.join(
+                config.get("API").get("Download_Path"), f"{platform}_video"
+            )
+            os.makedirs(download_path, exist_ok=True)
+            file_name = (
+                f"{file_prefix}{platform}_{video_id}.mp4"
+                if not with_watermark
+                else f"{file_prefix}{platform}_{video_id}_watermark.mp4"
+            )
+            file_path = os.path.join(download_path, file_name)
+            if os.path.exists(file_path):
+                file_size = os.path.getsize(file_path)
+                logger.info(
+                    f"[{request_id}] File already exists, returning directly: {file_path}"
+                )
+                response = FileResponse(
+                    path=file_path, filename=file_name, media_type="video/mp4"
+                )
+                response.headers["Content-Disposition"] = (
+                    f"attachment; filename={file_name}"
+                )
+                response.headers["Content-Length"] = str(file_size)
+                return response
+            fast_path_found = True
+
     # Bilibili: https://www.bilibili.com/video/BVxxx 或 https://www.bilibili.com/video/avxxx
     if "bilibili.com" in url_lower and not fast_path_found:
         import re
