@@ -191,10 +191,12 @@ const closeErrorModal = () => {
 
           <div class="flex-1 min-w-0">
             <!-- 头部：作者 + 发布时间 -->
-            <div class="flex items-center gap-2 text-sm text-gray-500 mb-1 flex-wrap">
+            <div class="flex items-center gap-2 text-sm text-gray-700 mb-1 flex-wrap">
               <span class="font-medium text-gray-900">@{{ item.uploader || result.username }}</span>
               <span class="text-gray-300">·</span>
-              <span class="font-medium text-pink-600">{{ item.formatted_publish_time || item.upload_date || '未知时间' }}</span>
+              <span class="font-medium text-pink-600" :title="item.timestamp ? '发布时间（UTC+8）' : ''">
+                📅 发布于 {{ item.formatted_publish_time || item.upload_date || '未知时间' }}
+              </span>
               <span v-if="item.upload_date && item.formatted_publish_time" class="text-xs text-gray-400">
                 ({{ item.upload_date }})
               </span>
@@ -219,7 +221,7 @@ const closeErrorModal = () => {
               <span v-if="item.like_count != null">❤️ {{ item.like_count.toLocaleString() }}</span>
               <span v-if="item.comment_count != null">💬 {{ item.comment_count.toLocaleString() }}</span>
               <span v-if="item.view_count != null">▶️ {{ item.view_count.toLocaleString() }}</span>
-              <span v-if="item.duration != null">⏱️ {{ item.duration }}s</span>
+              <span v-if="item.duration != null" title="视频时长">⏱️ 时长 {{ item.duration }}s</span>
             </div>
 
             <!-- URL -->
