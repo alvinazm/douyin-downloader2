@@ -203,3 +203,12 @@ const isDemo = computed(() => environment.value === 'Demo')
 - server.log 是服务器启动日志，也记录了视频解析、下载结果，可以作为备份日志；
 - logs/parser_video_2026-03-25.log 是视频解析日志
 - logs/download_video_2026-03-25.log 是视频下载日志
+
+# ins 采集
+https://www.instagram.com/alivn.azm/reels/
+https://www.instagram.com/yapayzekaserisi/reels/
+https://www.instagram.com/gerdegotit/reels
+https://www.instagram.com/olivervisualfx/reels
+https://www.instagram.com/nikolaisavic/reels
+https://www.instagram.com/sitiorevivi_ia/reels
+https://www.instagram.com/diycraftstvofficial/reels
