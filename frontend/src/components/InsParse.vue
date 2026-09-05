@@ -123,6 +123,30 @@ const isFreshItem = (item: InsReelItem): boolean => {
   return freshnessInfo(item.timestamp).isFresh
 }
 
+/**
+ * 单数模式：依据 onlyFresh 过滤后的 items 列表（computed 缓存）
+ */
+const singleModeVisibleItems = computed(() => {
+  const items = result.value?.items || []
+  return onlyFresh.value ? items.filter(isFreshItem) : items
+})
+
+/**
+ * urls 模式：每组按 onlyFresh 过滤后的 items 列表
+ */
+const visibleItemsOf = (group: InsReelResult): InsReelItem[] => {
+  const items = group.items || []
+  return onlyFresh.value ? items.filter(isFreshItem) : items
+}
+
+/**
+ * 单数模式是否完全没新鲜视频
+ */
+const singleModeHasAnyFresh = computed(() => {
+  const items = result.value?.items || []
+  return items.some(isFreshItem)
+})
+
 const fetchLatest = async () => {
   errorMessage.value = ''
   const err = validateInput(inputUrl.value)
@@ -281,7 +305,7 @@ const closeErrorModal = () => {
         <div v-if="result.items && result.items.length === 0 && !result.warning" class="text-center text-gray-500 py-12">
           未抓取到任何视频，请检查链接或 Chrome 登录态
         </div>
-        <div v-else-if="onlyFresh && (result.items || []).filter(isFreshItem).length === 0 && (result.items || []).length > 0" class="text-center text-gray-500 py-12">
+        <div v-else-if="onlyFresh && !singleModeHasAnyFresh && (result.items || []).length > 0" class="text-center text-gray-500 py-12">
           没有发布时间 &lt; {{ FRESH_MINUTES }} 分钟的视频（共 {{ result.items.length }} 条）
           <button @click="onlyFresh = false" class="ml-2 text-blue-500 hover:underline text-sm">
             显示全部
@@ -289,8 +313,7 @@ const closeErrorModal = () => {
         </div>
 
         <div
-          v-for="(item, idx) in (onlyFresh ? (result.items || []).filter(isFreshItem) : (result.items || []))"
-          v-if="!onlyFresh || isFreshItem(item)"
+          v-for="(item, idx) in singleModeVisibleItems"
         :key="item.shortcode"
         class="bg-white border-2 border-gray-200 rounded-xl p-5 shadow-md hover:shadow-lg transition-shadow"
       >
@@ -427,8 +450,7 @@ const closeErrorModal = () => {
 
           <!-- 该作者的 2 条视频 -->
           <div
-            v-for="(item, idx) in (onlyFresh ? group.items.filter(isFreshItem) : group.items)"
-            v-if="!onlyFresh || isFreshItem(item)"
+            v-for="(item, idx) in visibleItemsOf(group)"
             :key="item.shortcode"
             class="flex items-start gap-3 pl-2"
           >
