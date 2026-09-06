@@ -53,8 +53,11 @@ def _get_shortcodes_via_playwright(username: str, limit: int) -> List[str]:
 
     重要：用 channel="chrome" 让 Playwright 用系统已登录的 Chrome，
     绕过 Instagram 的 challenge 墙。参考 ins-fetch-latest.md 文档步骤 1。
+
+    网络容错：国内/弱网环境访问 IG 经常 ERR_TIMED_OUT。加重试 3 次，
+    失败则返回空列表（上层用 warning 提示用户）。
     """
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -65,41 +68,64 @@ def _get_shortcodes_via_playwright(username: str, limit: int) -> List[str]:
                 "--no-sandbox",
             ],
         )
-        ctx = browser.new_context(
-            viewport={"width": 1280, "height": 900},
-            user_agent=(
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/120.0.0.0 Safari/537.36"
-            ),
-            locale="en-US",
-        )
-        page = ctx.new_page()
-        page.goto(
-            f"https://www.instagram.com/{username}/reels/",
-            wait_until="domcontentloaded",
-            timeout=45000,
-        )
         try:
-            page.wait_for_selector("a[href*='/reel/']", timeout=30000)
-        except Exception as e:
-            logger.warning(
-                f"[InstagramCreatorLatest] /reels/ 列表等待超时: {e}; username={username}"
+            ctx = browser.new_context(
+                viewport={"width": 1280, "height": 900},
+                user_agent=(
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/120.0.0.0 Safari/537.36"
+                ),
+                locale="en-US",
             )
-            browser.close()
-            return []
+            page = ctx.new_page()
 
-        hrefs = page.evaluate(
-            f"""() => {{
-                const arr = Array.from(document.querySelectorAll('a[href*="/reel/"]'));
-                const codes = arr
-                    .map(a => (a.href.split('/reel/')[1] || '').split('/')[0])
-                    .filter(v => v && /^[A-Za-z0-9_-]{{6,20}}$/.test(v));
-                return Array.from(new Set(codes)).slice(0, {limit});
-            }}"""
-        )
-        browser.close()
-        return list(hrefs or [])
+            url = f"https://www.instagram.com/{username}/reels/"
+
+            for attempt in range(1, 4):
+                try:
+                    logger.info(
+                        f"[InstagramCreatorLatest] 抓取 /reels/ 列表 "
+                        f"(尝试 {attempt}/3, username={username})"
+                    )
+                    page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                    page.wait_for_selector("a[href*=\'/reel/\']", timeout=30000)
+
+                    hrefs = page.evaluate(
+                        f"""() => {{
+                            const arr = Array.from(document.querySelectorAll('a[href*="/reel/"]'));
+                            const codes = arr
+                                .map(a => (a.href.split(\'/reel/\')[1] || \'\').split(\'/\')[0])
+                                .filter(v => v && /^[A-Za-z0-9_-]{{6,20}}$/.test(v));
+                            return Array.from(new Set(codes)).slice(0, {limit});
+                        }}"""
+                    )
+                    if hrefs:
+                        return list(hrefs)
+                    logger.warning(
+                        f"[InstagramCreatorLatest] 抓到空 shortcode 列表，"
+                        f"重试中... (尝试 {attempt}/3)"
+                    )
+                except (PWTimeout, Exception) as e:
+                    logger.warning(
+                        f"[InstagramCreatorLatest] 抓取失败 (尝试 {attempt}/3): "
+                        f"{type(e).__name__}: {e}; username={username}"
+                    )
+
+                if attempt < 3:
+                    import time
+                    wait_sec = 2 if attempt == 1 else 5
+                    logger.info(
+                        f"[InstagramCreatorLatest] 等待 {wait_sec}s 后重试..."
+                    )
+                    time.sleep(wait_sec)
+
+            logger.error(
+                f"[InstagramCreatorLatest] 重试 3 次仍失败: username={username}"
+            )
+            return []
+        finally:
+            browser.close()
 
 
 def _fetch_reel_meta(shortcode: str) -> Optional[Dict[str, Any]]:

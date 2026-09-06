@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import axios from 'axios'
-import { useConfigStore } from '@/stores/config'
+import { onMounted, ref, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ApiClient } from '@/api'
 
+const route = useRoute()
 const router = useRouter()
-const configStore = useConfigStore()
 
 const inputUrl = ref('')
 const loading = ref(false)
@@ -165,7 +163,6 @@ const fetchLatest = async () => {
 
   loading.value = true
   result.value = null
-  onlyFresh.value = true  // 每次新查询默认开启筛选
   try {
     // 多个 URL 走 urls 数组；单个走 url 单数（向后兼容）
     const data = await ApiClient.insCreatorLatest({
@@ -183,6 +180,14 @@ const fetchLatest = async () => {
     loading.value = false
   }
 }
+
+onMounted(() => {
+  const queryUrls = route.query.urls
+  if (typeof queryUrls === 'string' && queryUrls.trim() && route.query.auto === '1') {
+    inputUrl.value = queryUrls
+    void fetchLatest()
+  }
+})
 
 const downloadReel = async (item: InsReelItem) => {
   const key = item.url

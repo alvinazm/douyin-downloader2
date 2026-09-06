@@ -148,3 +148,26 @@ export function truncateText(text: string, maxLength: number): string {
 
   return text.substring(0, maxLength) + '...'
 }
+
+/**
+ * 判断是否为 Instagram 作者的 Reels 列表页，而不是单条 Reel 视频页。
+ * 作者列表页形如：/username/reels/；单条视频页形如：/reel/shortcode/。
+ */
+export function isInstagramCreatorReelsUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    const hostname = parsed.hostname.toLowerCase()
+    if (hostname !== 'instagram.com' && hostname !== 'www.instagram.com') {
+      return false
+    }
+
+    const segments = parsed.pathname.split('/').filter(Boolean)
+    return (
+      segments.length === 2 &&
+      segments[1].toLowerCase() === 'reels' &&
+      /^[a-z0-9._]+$/i.test(segments[0])
+    )
+  } catch {
+    return false
+  }
+}

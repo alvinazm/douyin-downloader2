@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useVideoParser } from '@/composables/useVideoParser'
 import { useConfigStore } from '@/stores/config'
-import { extractUrls } from '@/utils/url'
+import { extractUrls, isInstagramCreatorReelsUrl } from '@/utils/url'
 
+const router = useRouter()
 const { isProcessing, error, parseMultipleUrls, progress, results, resetParser } = useVideoParser()
 const configStore = useConfigStore()
 
@@ -36,6 +38,23 @@ const handleParse = async () => {
   }
 
   const urls = extractUrls(inputText.value).slice(0, configStore.maxTakeUrls)
+  const creatorReelsUrls = urls.filter(isInstagramCreatorReelsUrl)
+
+  // 作者 /reels/ 是列表页，不能交给只解析单条视频的通用接口。
+  // 统一跳转到已有的 Instagram 作者解析页，避免得到无意义的 400。
+  if (creatorReelsUrls.length > 0) {
+    if (creatorReelsUrls.length !== urls.length) {
+      errorMessage.value = 'Instagram 作者 reels 链接请单独解析，不能和单条视频链接混合提交。'
+      showErrorModal.value = true
+      return
+    }
+
+    await router.push({
+      name: 'ins-parse',
+      query: { urls: creatorReelsUrls.join('\n'), auto: '1' },
+    })
+    return
+  }
 
   try {
     await parseMultipleUrls(urls, false)
