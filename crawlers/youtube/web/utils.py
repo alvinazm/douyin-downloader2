@@ -8,10 +8,15 @@ POST /api/hybrid/update_cookie 推送（service=youtube）写入 config，
 import os
 import yaml
 
+from crawlers.utils.utils import load_yaml_or_default
+from crawlers.utils.logger import logger as _crawler_logger_yt
+
 # 配置文件路径
 path = os.path.abspath(os.path.dirname(__file__))
-with open(f"{path}/config.yaml", "r", encoding="utf-8") as f:
-    config = yaml.safe_load(f)
+# 本地配置缺失时回退到空配置。
+config = load_yaml_or_default(
+    os.path.join(path, "config.yaml"), default={}, logger=_crawler_logger_yt
+)
 
 
 class TokenManager:

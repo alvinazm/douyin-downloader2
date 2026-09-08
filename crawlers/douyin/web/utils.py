@@ -64,15 +64,16 @@ from crawlers.utils.utils import (
     get_timestamp,
     extract_valid_urls,
     split_filename,
+    load_yaml_or_default,
 )
 
 # 配置文件路径
 # Read the configuration file
 path = os.path.abspath(os.path.dirname(__file__))
-
-# 读取配置文件
-with open(f"{path}/config.yaml", "r", encoding="utf-8") as f:
-    config = yaml.safe_load(f)
+# 本地配置缺失时回退到空配置（详见 crawlers.utils.utils.load_yaml_or_default）。
+config = load_yaml_or_default(
+    os.path.join(path, "config.yaml"), default={}, logger=logger
+)
 
 
 import browser_cookie3
@@ -98,13 +99,13 @@ def get_cookie_from_browser(domain: str = "douyin.com") -> dict:
 
 
 class TokenManager:
-    douyin_manager = config.get("TokenManager").get("douyin")
-    token_conf = douyin_manager.get("msToken", None)
-    ttwid_conf = douyin_manager.get("ttwid", None)
-    proxies_conf = douyin_manager.get("proxies", None)
+    douyin_manager = (config.get("TokenManager") or {}).get("douyin") or {}
+    token_conf = douyin_manager.get("msToken") or {}
+    ttwid_conf = douyin_manager.get("ttwid") or {}
+    proxies_conf = douyin_manager.get("proxies") or {}
     proxies = {
-        "http://": proxies_conf.get("http", None),
-        "https://": proxies_conf.get("https", None),
+        "http://": proxies_conf.get("http"),
+        "https://": proxies_conf.get("https"),
     }
 
     @staticmethod
@@ -179,6 +180,15 @@ class TokenManager:
         生成真实的msToken,当出现错误时返回虚假的值
         (Generate a real msToken and return a false value when an error occurs)
         """
+        # 本地配置缺失或字段不全时直接降级，避免 Pydantic 字段定义 / 请求构造时崩溃。
+        if not cls.token_conf or not all(
+            k in cls.token_conf for k in ("magic", "version", "dataType", "strData", "url", "User-Agent")
+        ):
+            logger.warning(
+                "抖音 msToken 配置缺失或不完整（请补 crawlers/douyin/web/config.yaml），"
+                "本次返回随机 msToken 以保持服务可用。"
+            )
+            return cls.gen_false_msToken()
 
         payload = json.dumps(
             {

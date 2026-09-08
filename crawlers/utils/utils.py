@@ -392,3 +392,52 @@ def merge_config(
             merged_conf[key] = value  # CLI 参数会覆盖自定义配置和主配置中的同名参数
 
     return merged_conf
+
+
+def load_yaml_or_default(path: str, default=None, *, logger=None):
+    """
+    加载一个 YAML 配置文件，文件不存在或解析为空时回退到 default。
+
+    用途：部分爬虫的本地配置（crawlers/<plat>/web/config.yaml）用于存放 Cookie /
+    msToken / ttwid / 代理等敏感信息，已被 .gitignore 忽略。应用 import 阶段不应
+    因本地配置缺失而崩溃，缺失时应回退到 default 并通过 logger 给出明确提示。
+    """
+    import os as _os
+    import yaml as _yaml
+
+    if default is None:
+        default = {}
+
+    try:
+        if not _os.path.isfile(path):
+            if logger is not None:
+                logger.warning(
+                    "配置文件 %s 不存在，将使用空配置；相关 API 可能无法正常工作。"
+                    "请按 docs/technical-spec.md#141-configyaml 创建本地副本。",
+                    path,
+                )
+            return default
+    except OSError as exc:
+        if logger is not None:
+            logger.warning("检查配置文件 %s 时出错：%s，将使用空配置。", path, exc)
+        return default
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = _yaml.safe_load(f)
+    except FileNotFoundError as exc:
+        if logger is not None:
+            logger.warning("配置文件 %s 读取失败：%s，将使用空配置。", path, exc)
+        return default
+    except OSError as exc:
+        if logger is not None:
+            logger.warning("配置文件 %s 读取失败：%s，将使用空配置。", path, exc)
+        return default
+    except _yaml.YAMLError as exc:
+        if logger is not None:
+            logger.warning("配置文件 %s 解析失败：%s，将使用空配置。", path, exc)
+        return default
+
+    if data is None:
+        return default
+    return data

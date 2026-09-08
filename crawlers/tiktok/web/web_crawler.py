@@ -50,6 +50,8 @@ from crawlers.tiktok.web.utils import (
     SecUserIdFetcher,
     TokenManager
 )
+from crawlers.utils.utils import load_yaml_or_default
+from crawlers.utils.logger import logger as _crawler_logger
 
 # TikTok接口数据请求模型
 from crawlers.tiktok.web.models import (
@@ -67,12 +69,11 @@ from crawlers.tiktok.web.models import (
 )
 
 
-# 配置文件路径
+# 配置文件路径（缺本地配置时回退到空配置，详见 crawlers.utils.utils.load_yaml_or_default）
 path = os.path.abspath(os.path.dirname(__file__))
-
-# 读取配置文件
-with open(f"{path}/config.yaml", "r", encoding="utf-8") as f:
-    config = yaml.safe_load(f)
+config = load_yaml_or_default(
+    os.path.join(path, "config.yaml"), default={}, logger=_crawler_logger
+)
 
 
 class TikTokWebCrawler:

@@ -40,6 +40,8 @@ import yaml  # 配置文件
 # 基础爬虫客户端和哔哩哔哩API端点
 from crawlers.base_crawler import BaseCrawler
 from crawlers.bilibili.web.endpoints import BilibiliAPIEndpoints
+from crawlers.utils.utils import load_yaml_or_default
+from crawlers.utils.logger import logger as _crawler_logger_bili
 
 # 哔哩哔哩工具类
 from crawlers.bilibili.web.utils import EndpointGenerator, bv2av, ResponseAnalyzer
@@ -53,12 +55,11 @@ from crawlers.bilibili.web.models import (
     PlayUrl,
 )
 
-# 配置文件路径
+# 配置文件路径（缺本地配置时回退到空配置）
 path = os.path.abspath(os.path.dirname(__file__))
-
-# 读取配置文件
-with open(f"{path}/config.yaml", "r", encoding="utf-8") as f:
-    config = yaml.safe_load(f)
+config = load_yaml_or_default(
+    os.path.join(path, "config.yaml"), default={}, logger=_crawler_logger_bili
+)
 
 
 class BilibiliWebCrawler:

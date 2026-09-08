@@ -69,13 +69,14 @@ from crawlers.douyin.web.utils import (
     WebCastIdFetcher,  # 直播ID获取
     extract_valid_urls,  # URL提取
 )
+from crawlers.utils.utils import load_yaml_or_default
+from crawlers.utils.logger import logger as _crawler_logger_dy
 
-# 配置文件路径
+# 配置文件路径（缺本地配置时回退到空配置）
 path = os.path.abspath(os.path.dirname(__file__))
-
-# 读取配置文件
-with open(f"{path}/config.yaml", "r", encoding="utf-8") as f:
-    config = yaml.safe_load(f)
+config = load_yaml_or_default(
+    os.path.join(path, "config.yaml"), default={}, logger=_crawler_logger_dy
+)
 
 
 class DouyinWebCrawler:

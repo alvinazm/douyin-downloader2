@@ -15,6 +15,7 @@ from crawlers.utils.utils import (
     get_timestamp,
     extract_valid_urls,
     split_filename,
+    load_yaml_or_default,
 )
 from crawlers.utils.api_exceptions import (
     APIError,
@@ -27,21 +28,21 @@ from crawlers.utils.api_exceptions import (
 # 配置文件路径
 # Read the configuration file
 path = os.path.abspath(os.path.dirname(__file__))
-
-# 读取配置文件
-with open(f"{path}/config.yaml", "r", encoding="utf-8") as f:
-    config = yaml.safe_load(f)
+_local_config_path = os.path.join(path, "config.yaml")
+# 本地配置用于保存 Cookie / msToken / ttwid / 代理等敏感信息，已被 .gitignore 忽略。
+# 缺失时不要让整个应用无法启动，而是给出明确提示后回退到空配置。
+config = load_yaml_or_default(_local_config_path, default={}, logger=logger)
 
 
 class TokenManager:
-    tiktok_manager = config.get("TokenManager").get("tiktok")
-    token_conf = tiktok_manager.get("msToken", None)
-    ttwid_conf = tiktok_manager.get("ttwid", None)
-    odin_tt_conf = tiktok_manager.get("odin_tt", None)
-    proxies_conf = tiktok_manager.get("proxies", None)
+    tiktok_manager = (config.get("TokenManager") or {}).get("tiktok") or {}
+    token_conf = tiktok_manager.get("msToken") or {}
+    ttwid_conf = tiktok_manager.get("ttwid") or {}
+    odin_tt_conf = tiktok_manager.get("odin_tt") or {}
+    proxies_conf = tiktok_manager.get("proxies") or {}
     proxies = {
-        "http://": proxies_conf.get("http", None),
-        "https://": proxies_conf.get("https", None),
+        "http://": proxies_conf.get("http"),
+        "https://": proxies_conf.get("https"),
     }
 
     @classmethod
@@ -50,6 +51,15 @@ class TokenManager:
         生成真实的msToken,当出现错误时返回虚假的值
         (Generate a real msToken and return a false value when an error occurs)
         """
+        # 本地配置缺失或字段不全时直接降级，避免 Pydantic 字段定义 / 请求构造时崩溃。
+        if not cls.token_conf or not all(
+            k in cls.token_conf for k in ("magic", "version", "dataType", "strData", "url", "User-Agent")
+        ):
+            logger.warning(
+                "TikTok msToken 配置缺失或不完整（请补 crawlers/tiktok/web/config.yaml），"
+                "本次返回随机 msToken 以保持服务可用。"
+            )
+            return cls.gen_false_msToken()
 
         payload = json.dumps(
             {
@@ -122,6 +132,13 @@ class TokenManager:
         """
         生成请求必带的ttwid (Generate the essential ttwid for requests)
         """
+        # 本地配置缺失时直接降级，避免 Pydantic / 请求链路崩溃。
+        if not cls.ttwid_conf or "url" not in cls.ttwid_conf or "data" not in cls.ttwid_conf:
+            logger.warning(
+                "TikTok ttwid 配置缺失（请补 crawlers/tiktok/web/config.yaml），"
+                "本次返回空 ttwid 以保持服务可用。"
+            )
+            return ""
         transport = httpx.HTTPTransport(retries=5)
         proxy = cls.proxies.get("http") or cls.proxies.get("https")
         with httpx.Client(transport=transport, proxy=proxy, timeout=30.0) as client:
@@ -176,6 +193,13 @@ class TokenManager:
         """
         生成请求必带的odin_tt (Generate the essential odin_tt for requests)
         """
+        # 本地配置缺失时直接降级。
+        if not cls.odin_tt_conf or "url" not in cls.odin_tt_conf:
+            logger.warning(
+                "TikTok odin_tt 配置缺失（请补 crawlers/tiktok/web/config.yaml），"
+                "本次返回空 odin_tt 以保持服务可用。"
+            )
+            return ""
         transport = httpx.HTTPTransport(retries=5)
         proxy = cls.proxies.get("http") or cls.proxies.get("https")
         with httpx.Client(transport=transport, proxy=proxy, timeout=30.0) as client:

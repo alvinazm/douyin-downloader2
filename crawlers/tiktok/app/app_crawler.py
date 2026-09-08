@@ -47,18 +47,20 @@ from crawlers.utils.logger import logger  # 导入日志模块
 # 重试机制
 from tenacity import *
 
+from crawlers.utils.utils import load_yaml_or_default
+from crawlers.utils.logger import logger as _crawler_logger_app
+
 # TikTok接口数据请求模型
 from crawlers.tiktok.app.models import BaseRequestModel, FeedVideoDetail
 
 # 标记已废弃的方法
 from crawlers.utils.deprecated import deprecated
 
-# 配置文件路径
+# 配置文件路径（缺本地配置时回退到空配置）
 path = os.path.abspath(os.path.dirname(__file__))
-
-# 读取配置文件
-with open(f"{path}/config.yaml", "r", encoding="utf-8") as f:
-    config = yaml.safe_load(f)
+config = load_yaml_or_default(
+    os.path.join(path, "config.yaml"), default={}, logger=_crawler_logger_app
+)
 
 
 class TikTokAPPCrawler:
